@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-15 내 기록 넣기 · 회사 정보 -->
+<!-- build: 1판-16 시상표 · 모달 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -1423,7 +1423,7 @@ function drawCard(o) {
     x.fillStyle = "#5B7A91";
     x.font = "400 19px 'IBM Plex Sans KR', sans-serif";
     x.textAlign = "right";
-    x.fillText("My Score", W - 40, H - 34);
+    x.fillText("GOLF ON", W - 40, H - 34);
     x.textAlign = "left";
   };
   if (!photo) {
@@ -2790,7 +2790,21 @@ function drawHidden(n, holes) {
 
 /* 시상 결과 + 홀별 성적표를 그림 한 장으로
    ★ 위: 날짜·골프장·시상 내역 / 아래: 1홀~18홀 타수 + 그로스 + 핸디 + 네트 */
-function drawAward(o) {
+/* ★ 시상표 그림 — 2026-09-05 에 다시 짰다 (사용자 지시)
+
+     ┌──────────────────────┬──────────┐
+     │                      │ 대회 이름 │
+     │      단체사진 2/3      │ 날짜·장소 │
+     │                      ├──────────┤
+     │                      │ 시상 내역 │
+     ├──────────────────────┴──────────┤
+     │ 전체 성적 · 18홀을 한 줄로 (A4 가로) │
+     └─────────────────────────────────┘
+
+   ★ 사진이 주인공이다 — 가로의 2/3 를 준다.
+   ★ 18홀을 한 줄에 편다. 전반·후반을 나누지 않는다.
+   ★ 히든홀은 홀 번호 아래에 점을 찍는다 (옆에 붙이면 칸이 넓어져 18홀이 안 들어간다) */
+async function drawAward(o) {
   const {
     place,
     date,
@@ -2800,168 +2814,140 @@ function drawAward(o) {
     awards,
     extra,
     ranked,
-    way
+    way,
+    title,
+    photo
   } = o;
   const G = holeGeom(o);
-  const sheet = o.pars && o.pars.length && ranked.length; // 홀별 자료가 있을 때만 아래를 붙인다
-  const W = Math.max(1400, sheet ? G.W : 0);
-  const aN = awards.length + extra.length;
-  const rN = ranked.length + 1;
-  const bodyH = Math.max(aN * 78, rN * 46) + 30;
-  const headH = Math.max(560, 196 + bodyH + 70);
-  const tblTop = headH + 30;
-  const H = sheet ? tblTop + holeTableH(o) + 54 : headH;
+  const sheet = o.pars && o.pars.length && ranked.length;
+  const W = Math.max(1500, sheet ? G.W : 0);
+  const PW = Math.round(W * 0.66); /* 사진 자리 */
+  const headH = Math.max(430, 150 + (awards.length + extra.length) * 46 + 60);
+  const tblTop = headH + 34;
+  const H = sheet ? tblTop + holeTableH(o) + 60 : headH + 60;
   const c = document.createElement("canvas");
   c.width = W;
   c.height = H;
   const x = c.getContext("2d");
   x.fillStyle = "#0B1520";
   x.fillRect(0, 0, W, H);
-  /* 위쪽 띠 */
-  const g = x.createLinearGradient(0, 0, W, 0);
-  g.addColorStop(0, "rgba(79,178,134,.20)");
-  g.addColorStop(1, "rgba(232,184,56,.10)");
-  x.fillStyle = g;
-  x.fillRect(0, 0, W, 128);
-  x.fillStyle = "#E8B838";
-  x.font = "700 44px 'IBM Plex Sans KR', sans-serif";
-  x.fillText("🏆 " + (place || "대회") + " 시상", 44, 68);
-  x.fillStyle = "#9FBBD0";
-  x.font = "400 23px 'IBM Plex Sans KR', sans-serif";
-  const sub = [date, wayName, holes ? `${holes}홀` : "", `${ranked.length}명`].filter(Boolean).join("   ");
-  x.fillText(sub, 46, 105);
-  if (hidden && hidden.length) {
-    x.fillStyle = "rgba(232,184,56,.85)";
-    x.font = "500 19px 'Oswald', sans-serif";
-    /* ★ 누가 그 홀을 불렀는지 함께 박는다. 나중에 "누가 정했냐" 는 말이 안 나오게 */
-    const by = o.pickBy || {};
-    const some = hidden.some(i => by[i]);
-    x.fillText("히든홀  " + hidden.map(i => i + 1 + (by[i] ? `(${by[i]})` : "")).join("  "), 46, 158);
-    if (some) {
-      x.fillStyle = "rgba(159,187,208,.6)";
-      x.font = "400 15px 'IBM Plex Sans KR', sans-serif";
-      x.fillText("괄호는 그 홀을 부른 사람입니다", 46, 180);
-    }
-  }
-  const top = 196;
-  const LW = 560;
 
-  /* 왼쪽 — 상 */
-  let y = top;
-  const all = [...awards, ...extra];
-  all.forEach(a => {
-    x.fillStyle = "#E8B838";
-    x.font = "700 24px 'IBM Plex Sans KR', sans-serif";
-    x.fillText(a.title, 46, y);
-    x.fillStyle = a.who ? "#F4EEDF" : "#3C5468";
-    x.font = "600 34px 'IBM Plex Sans KR', sans-serif";
-    x.fillText(a.who || "—", 46, y + 40);
-    if (a.note) {
-      x.fillStyle = "#7B93A8";
-      x.font = "500 21px 'Oswald', sans-serif";
-      const wid = x.measureText(a.who || "—").width;
-      x.font = "600 34px 'IBM Plex Sans KR', sans-serif";
-      const w2 = x.measureText(a.who || "—").width;
-      x.fillStyle = "#7B93A8";
-      x.font = "500 21px 'Oswald', sans-serif";
-      x.fillText(a.note, 46 + w2 + 14, y + 38);
+  /* ── 왼쪽: 단체사진 ── */
+  if (photo) {
+    try {
+      const img = await new Promise((ok, no) => {
+        const im = new Image();
+        im.onload = () => ok(im);
+        im.onerror = no;
+        im.crossOrigin = "anonymous";
+        im.src = photo;
+      });
+      /* 자리를 꽉 채우고 넘치는 쪽을 잘라낸다 (찌그러지지 않게) */
+      const s = Math.max(PW / img.width, headH / img.height);
+      const w = img.width * s,
+        h = img.height * s;
+      x.save();
+      x.beginPath();
+      x.rect(0, 0, PW, headH);
+      x.clip();
+      x.drawImage(img, (PW - w) / 2, (headH - h) / 2, w, h);
+      x.restore();
+    } catch (e) {
+      x.fillStyle = "#13233A";
+      x.fillRect(0, 0, PW, headH);
     }
-    y += 78;
-  });
-
-  /* 가른 선 */
-  x.strokeStyle = "rgba(159,187,208,.18)";
-  x.beginPath();
-  x.moveTo(LW + 16, top - 34);
-  x.lineTo(LW + 16, H - 60);
-  x.stroke();
-
-  /* 오른쪽 — 순위 */
-  const RX = LW + 60;
-  const colName = RX + 54,
-    colTeam = RX + 210,
-    colG = RX + 330,
-    colH = RX + 450,
-    colN = RX + 570;
-  x.fillStyle = "#7B93A8";
-  x.font = "500 19px 'IBM Plex Sans KR', sans-serif";
-  x.fillText("순위", RX, top - 6);
-  x.fillText("선수", colName, top - 6);
-  x.fillText("조", colTeam, top - 6);
-  x.textAlign = "right";
-  x.fillText(way === "gross" ? "타수" : "그로스", colG + 40, top - 6);
-  if (way !== "gross") {
-    x.fillText("핸디", colH + 40, top - 6);
-    x.fillText("네트", colN + 40, top - 6);
-  } else x.fillText("파대비", colH + 40, top - 6);
-  x.textAlign = "left";
-  y = top + 34;
-  ranked.forEach((r, i) => {
-    const gold = i === 0;
-    x.fillStyle = gold ? "#E8B838" : "#7B93A8";
-    x.font = "600 24px 'Oswald', sans-serif";
-    x.fillText(String(i + 1), RX + 4, y);
-    x.fillStyle = gold ? "#F4EEDF" : "#DCE6EE";
-    x.font = `${gold ? 700 : 500} 26px 'IBM Plex Sans KR', sans-serif`;
-    x.fillText(String(r.name).slice(0, 7), colName, y);
-    x.fillStyle = "#5B7A91";
-    x.font = "400 20px 'IBM Plex Sans KR', sans-serif";
-    x.fillText(`${r.team}조`, colTeam, y);
-    x.textAlign = "right";
-    x.fillStyle = "#F4EEDF";
-    x.font = "600 26px 'Oswald', sans-serif";
-    x.fillText(String(r.gross), colG + 40, y);
-    if (way === "gross") {
-      x.fillStyle = "#4FB286";
-      x.font = "500 22px 'Oswald', sans-serif";
-      x.fillText(r.diff, colH + 40, y);
-    } else {
-      x.fillStyle = "#7B93A8";
-      x.font = "500 22px 'Oswald', sans-serif";
-      x.fillText(r.handi === null ? "-" : String(r.handi), colH + 40, y);
-      x.fillStyle = "#4FB286";
-      x.font = "700 27px 'Oswald', sans-serif";
-      x.fillText(r.net === null ? "-" : String(r.net), colN + 40, y);
-    }
+  } else {
+    x.fillStyle = "#13233A";
+    x.fillRect(0, 0, PW, headH);
+    x.fillStyle = "#31485F";
+    x.textAlign = "center";
+    x.font = "500 26px 'IBM Plex Sans KR', sans-serif";
+    x.fillText("단체사진을 넣어보세요", PW / 2, headH / 2);
     x.textAlign = "left";
-    x.strokeStyle = "rgba(159,187,208,.10)";
-    x.beginPath();
-    x.moveTo(RX, y + 12);
-    x.lineTo(W - 44, y + 12);
-    x.stroke();
+  }
+
+  /* ── 오른쪽 위: 대회 이름과 설명 ── */
+  const RX = PW + 34,
+    RW = W - PW - 68;
+  x.strokeStyle = "rgba(244,238,223,.14)";
+  x.lineWidth = 1;
+  x.beginPath();
+  x.moveTo(PW, 0);
+  x.lineTo(PW, headH);
+  x.stroke();
+  let y = 58;
+  x.fillStyle = "#E8B838";
+  x.font = "600 40px 'IBM Plex Sans KR', sans-serif";
+  const words = String(title || "골프대회").split(" ");
+  let line = "";
+  const lines = [];
+  words.forEach(w2 => {
+    const t = line ? line + " " + w2 : w2;
+    if (x.measureText(t).width > RW && line) {
+      lines.push(line);
+      line = w2;
+    } else line = t;
+  });
+  if (line) lines.push(line);
+  lines.slice(0, 2).forEach(t => {
+    x.fillText(t, RX, y);
     y += 46;
   });
+  y += 8;
+  x.fillStyle = "#9FBBD0";
+  x.font = "400 22px 'IBM Plex Sans KR', sans-serif";
+  [`${date}${dow(date) ? ` (${dow(date)})` : ""}`, place || "", `${holes}홀 · 파 ${o.coursePar} · ${ranked.length}명 · ${wayName}`].filter(Boolean).forEach(t => {
+    x.fillText(t, RX, y);
+    y += 32;
+  });
 
-  /* ── 아래쪽 — 홀별 성적표 ── */
-  if (sheet) {
-    /* ★ 위는 시상 방식(네트) 순, 아래는 그로스 순.
-       아래를 그로스로 두는 까닭: 핸디를 걷어낸 "진짜 타수 순서" 를 봐야
-       수준이 비슷한 사람끼리 다음에 같이 칠 수 있다. 그게 이 표의 목적이다. */
-    const byGross = [...ranked].sort((a, b) => a.gross - b.gross || String(a.name).localeCompare(String(b.name)));
-    x.strokeStyle = "rgba(244,238,223,.16)";
-    x.lineWidth = 1;
-    x.beginPath();
-    x.moveTo(36, headH - 6);
-    x.lineTo(W - 30, headH - 6);
-    x.stroke();
+  /* ── 오른쪽 아래: 시상 내역 ── */
+  const awTop = y + 18;
+  x.strokeStyle = "rgba(244,238,223,.14)";
+  x.beginPath();
+  x.moveTo(RX, awTop - 20);
+  x.lineTo(W - 34, awTop - 20);
+  x.stroke();
+  x.fillStyle = "#7E9AB0";
+  x.font = "600 17px 'IBM Plex Sans KR', sans-serif";
+  x.fillText("시 상 내 역", RX, awTop + 6);
+  let ay = awTop + 46;
+  const medal = ["#E8B838", "#C8CBD0", "#C08552"];
+  [...awards, ...extra].forEach((a, i) => {
+    if (!a.who) return;
+    x.fillStyle = i < 3 ? medal[i] : "#9FBBD0";
+    x.font = "500 23px 'IBM Plex Sans KR', sans-serif";
+    x.fillText(a.title, RX, ay);
     x.fillStyle = "#F4EEDF";
-    x.font = "700 26px 'IBM Plex Sans KR', sans-serif";
-    x.fillText("📋 전체 성적표", 44, headH + 30);
-    x.fillStyle = "#E8B838";
-    x.font = "600 19px 'IBM Plex Sans KR', sans-serif";
-    x.fillText("타수 순 (그로스)", 210, headH + 30);
-    x.fillStyle = "#5B7A91";
+    x.font = "600 24px 'IBM Plex Sans KR', sans-serif";
+    x.fillText(a.who, RX + 118, ay);
+    if (a.note) {
+      x.fillStyle = "#7E9AB0";
+      x.font = "400 18px 'IBM Plex Sans KR', sans-serif";
+      x.fillText(a.note, RX + 118 + x.measureText(a.who).width + 84, ay);
+    }
+    ay += 44;
+  });
+
+  /* ── 아래: 전체 성적 ── */
+  if (sheet) {
+    x.strokeStyle = "rgba(244,238,223,.14)";
+    x.beginPath();
+    x.moveTo(0, headH);
+    x.lineTo(W, headH);
+    x.stroke();
+    x.fillStyle = "#7E9AB0";
+    x.font = "600 17px 'IBM Plex Sans KR', sans-serif";
+    x.fillText("전 체 성 적", 44, headH + 34);
+    x.fillStyle = "#6F8598";
     x.font = "400 17px 'IBM Plex Sans KR', sans-serif";
-    x.fillText("위 순위는 " + wayName + " 기준 · 코스 파 " + o.coursePar + (hidden && hidden.length ? " · 노란 띠가 히든홀" : "") + (way === "gross" ? "" : " · 네트 = 그로스 − 핸디"), 372, headH + 30);
-    holeTable(x, {
-      ...o,
-      ranked: byGross
-    }, tblTop + 62, W);
+    x.fillText((hidden && hidden.length ? `히든홀 ● ${hidden.length}개` : "") + (way === "gross" ? "" : "  ·  네트 = 그로스 − 핸디"), 200, headH + 34);
+    holeTable(x, o, tblTop + 62, W);
   }
   x.fillStyle = "#5B7A91";
   x.font = "400 19px 'IBM Plex Sans KR', sans-serif";
   x.textAlign = "right";
-  x.fillText("My Score", W - 44, H - 26);
+  x.fillText("GOLF ON", W - 44, H - 26);
   x.textAlign = "left";
   return c;
 }
@@ -3035,11 +3021,15 @@ function holeTable(x, o, top, W) {
   const cellX = i => i < G.half ? G.x0 + i * G.CELL : G.inX + (i - G.half) * G.CELL;
   const px = v => String(v).startsWith("var") ? "#F4EEDF" : v;
 
-  /* 히든홀 세로 띠 — 어느 홀이 뽑혔는지 한눈에 */
+  /* ★ 히든홀 — 홀 번호 아래에 점을 찍는다 (2026-09-05 · 사용자 지시).
+        전에는 세로 띠였는데 18홀을 한 줄로 펴니 띠가 너무 많아 어지러웠다.
+        점은 자리를 안 먹어서 홀 칸을 좁히지 않는다 */
   hid.forEach(i => {
     if (i >= G.holes) return;
-    x.fillStyle = "rgba(232,184,56,.10)";
-    x.fillRect(cellX(i) - G.CELL / 2, top - 46, G.CELL, (ranked.length + 1) * ROW + 52);
+    x.fillStyle = "#E8B838";
+    x.beginPath();
+    x.arc(cellX(i), top - 30, 5, 0, Math.PI * 2);
+    x.fill();
   });
 
   /* 홀 번호 · 파 */
@@ -3638,10 +3628,42 @@ function GolfAward({
   const [pickBy, setPickBy] = useState({}); // { 홀번호: 부른 사람 } — 시상 그림에 박는다
   const [wipe, setWipe] = useState(false); // 처음부터 다시 — 물어보는 중
   const [pickMine, setPickMine] = useState(false); // 내 기록이 여럿일 때 고르는 중
+  const [teamOpen, setTeamOpen] = useState(false); // ★ 조별 기록 넣기 모달
+  const [cardOpen, setCardOpen] = useState(false); // ★ 시상표 모달
+  const [title, setTitle] = useState(""); // 대회 이름
+  const [photo, setPhoto] = useState(""); // 단체사진
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("golf:award:v1");
+        if (r?.value) {
+          const o = JSON.parse(r.value);
+          setTitle(o.title || "");
+          setPhoto(o.photo || "");
+        }
+      } catch (e) {}
+    })();
+  }, []);
+  const awFirst = useRef(true);
+  useEffect(() => {
+    if (awFirst.current) {
+      awFirst.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      try {
+        Promise.resolve(window.storage.set("golf:award:v1", JSON.stringify({
+          title,
+          photo
+        }))).catch(() => {});
+      } catch (e) {}
+    }, 600);
+    return () => clearTimeout(t);
+  }, [title, photo]);
   const myGames = golfGames(data.games).filter(g => Array.isArray(g.pars) && g.pars.length).slice(0, 8);
 
   /* 그림에 넣을 것들을 모아둔다 */
-  const makeCard = () => {
+  const makeCard = async () => {
     const aw = kinds.map(k => {
       const a = AWARD_KIND.find(x => x.k === k);
       const r = awardOf(k);
@@ -3664,6 +3686,8 @@ function GolfAward({
       pickBy,
       holes,
       way,
+      title: title.trim(),
+      photo,
       pars,
       coursePar,
       // ← 아래쪽 홀별 성적표에 쓴다
@@ -4211,71 +4235,47 @@ function GolfAward({
       color: "var(--chalk)",
       fontSize: 12.5
     }
-  }, "＋ 상 추가"))), ranked.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "＋ 상 추가"))), ranked.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCardOpen(true),
     className: "card",
     style: {
-      padding: 14
+      padding: 14,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      textAlign: "left",
+      width: "100%"
     }
   }, /*#__PURE__*/React.createElement("span", {
-    className: "lbl"
-  }, "시상 결과 + 전체 성적표 그림"), /*#__PURE__*/React.createElement("div", {
     style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 14.5,
+      fontWeight: 700
+    }
+  }, "🏆 시상표 만들기"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
       fontSize: 11.5,
-      color: "rgba(159,187,208,.7)",
-      lineHeight: 1.6,
-      marginBottom: 11
+      color: "var(--chalk)",
+      marginTop: 3,
+      lineHeight: 1.6
     }
-  }, "위쪽에 ", /*#__PURE__*/React.createElement("b", {
+  }, "단체사진 · 시상 내역 · ", rows.length, "명 전체 성적을 한 장으로")), /*#__PURE__*/React.createElement("span", {
     style: {
-      color: "var(--ivory)"
-    }
-  }, "날짜·골프장·시상 내역"), ", 아래쪽에 ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: "var(--ivory)"
-    }
-  }, "1홀부터 끝까지 홀별 타수와 그로스·핸디·네트"), "가 한 장에 들어갑니다. 단톡방에 올리기 좋습니다."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "prim",
-    disabled: busy,
-    style: {
-      width: "100%",
-      padding: 14
-    },
-    onClick: async () => {
-      setBusy(true);
-      try {
-        await sendCard(makeCard(), `${games[0] && games[0].place || "대회"}_시상`, say);
-      } catch (e) {
-        say("그림을 만들지 못했습니다");
-      }
-      setBusy(false);
-    }
-  }, busy ? "만드는 중…" : "📤 톡으로 바로 보내기"), /*#__PURE__*/React.createElement("button", {
-    disabled: busy,
-    style: {
-      padding: "13px 0",
-      borderRadius: 9,
-      fontSize: 13.5,
+      flexShrink: 0,
+      borderRadius: 8,
+      padding: "9px 14px",
+      fontSize: 13,
       fontWeight: 700,
-      background: "#1E88E5",
-      color: "#fff",
-      opacity: busy ? .5 : 1
-    },
-    onClick: async () => {
-      setBusy(true);
-      try {
-        await saveCard(makeCard(), `${games[0] && games[0].place || "대회"}_시상`, say);
-      } catch (e) {
-        say("그림을 만들지 못했습니다");
-      }
-      setBusy(false);
+      background: "rgba(232,184,56,.16)",
+      border: "1px solid rgba(232,184,56,.5)",
+      color: "var(--accent)"
     }
-  }, busy ? "만드는 중…" : "⬇ 사진첩에 저장"))), rows.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "열기")), rows.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       padding: "14px 0 14px 14px"
@@ -4496,7 +4496,90 @@ function GolfAward({
     style: {
       color: "var(--ivory)"
     }
-  }, "타수 순(그로스)"), " 입니다. 위 순위표는 ", AWARD_WAY.find(w => w.k === way).t, " 기준이라 순서가 다릅니다. 시상 결과 그림 아래쪽에 이대로 함께 들어갑니다.")), /*#__PURE__*/React.createElement("div", {
+  }, "타수 순(그로스)"), " 입니다. 위 순위표는 ", AWARD_WAY.find(w => w.k === way).t, " 기준이라 순서가 다릅니다. 시상 결과 그림 아래쪽에 이대로 함께 들어갑니다.")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setTeamOpen(true),
+    className: "card",
+    style: {
+      padding: 14,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      textAlign: "left",
+      width: "100%"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 14.5,
+      fontWeight: 700
+    }
+  }, "조별 기록 넣기"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 11.5,
+      color: "var(--chalk)",
+      marginTop: 3
+    }
+  }, games.length ? `${games.length}개 조 · ${rows.length}명 저장됨` : "아직 넣은 조가 없습니다")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flexShrink: 0,
+      borderRadius: 8,
+      padding: "9px 14px",
+      fontSize: 13,
+      fontWeight: 700,
+      background: "rgba(232,184,56,.16)",
+      border: "1px solid rgba(232,184,56,.5)",
+      color: "var(--accent)"
+    }
+  }, "열기")), teamOpen && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setTeamOpen(false),
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,.8)",
+      zIndex: 95,
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "var(--bg)",
+      width: "100%",
+      maxWidth: 520,
+      borderRadius: "16px 16px 0 0",
+      padding: "16px 14px",
+      paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+      maxHeight: "92vh",
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: 700
+    }
+  }, "조별 기록 넣기"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setTeamOpen(false),
+    style: {
+      fontSize: 13,
+      padding: "7px 13px",
+      borderRadius: 8,
+      border: "1px solid var(--line)",
+      color: "var(--chalk)"
+    }
+  }, "← 뒤로")), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       padding: 14
@@ -4820,7 +4903,213 @@ function GolfAward({
       fontSize: 13,
       color: "#7d8f9b"
     }
-  }, "취소")))));
+  }, "취소")))))), cardOpen && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setCardOpen(false),
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,.8)",
+      zIndex: 95,
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "var(--bg)",
+      width: "100%",
+      maxWidth: 520,
+      borderRadius: "16px 16px 0 0",
+      padding: "16px 14px",
+      paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+      maxHeight: "92vh",
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: 700
+    }
+  }, "시상표 만들기"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCardOpen(false),
+    style: {
+      fontSize: 13,
+      padding: "7px 13px",
+      borderRadius: 8,
+      border: "1px solid var(--line)",
+      color: "var(--chalk)"
+    }
+  }, "← 뒤로")), /*#__PURE__*/React.createElement("span", {
+    className: "lbl"
+  }, "대회 이름"), /*#__PURE__*/React.createElement("input", {
+    value: title,
+    onChange: e => setTitle(e.target.value),
+    placeholder: "동네 멤버들 골프대회",
+    style: {
+      marginBottom: 14
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "lbl"
+  }, "단체사진"), photo ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: photo,
+    alt: "",
+    style: {
+      width: "100%",
+      borderRadius: 10,
+      display: "block",
+      maxHeight: 200,
+      objectFit: "cover"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 7,
+      marginTop: 7
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      flex: 1,
+      textAlign: "center",
+      padding: "11px 0",
+      borderRadius: 9,
+      fontSize: 13,
+      border: "1px solid var(--line)",
+      color: "var(--chalk)",
+      cursor: "pointer"
+    }
+  }, "바꾸기", /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: "none"
+    },
+    onChange: async e => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!f) return;
+      try {
+        setPhoto(await shrinkPhoto(f, 1400, 0.8));
+      } catch (err) {
+        say("사진을 담지 못했습니다");
+      }
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPhoto(""),
+    style: {
+      flex: 1,
+      padding: "11px 0",
+      borderRadius: 9,
+      fontSize: 13,
+      border: "1px solid var(--line)",
+      color: "var(--chalk)"
+    }
+  }, "사진 빼기"))) : /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      border: "1px dashed rgba(232,184,56,.45)",
+      borderRadius: 12,
+      padding: 22,
+      textAlign: "center",
+      cursor: "pointer",
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 24
+    }
+  }, "📷"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      fontWeight: 700,
+      marginTop: 7
+    }
+  }, "사진 고르기"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: "none"
+    },
+    onChange: async e => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!f) return;
+      try {
+        setPhoto(await shrinkPhoto(f, 1400, 0.8));
+      } catch (err) {
+        say("사진을 담지 못했습니다");
+      }
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6F8598",
+      lineHeight: 1.6,
+      marginBottom: 16
+    }
+  }, "시상표 왼쪽에 크게 들어갑니다. 없으면 사진 없이 만듭니다."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "rgba(0,0,0,.28)",
+      borderRadius: 10,
+      padding: "12px 13px",
+      fontSize: 11.5,
+      color: "var(--chalk)",
+      lineHeight: 1.7,
+      marginBottom: 14
+    }
+  }, "지금 방식은 ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "var(--ivory)"
+    }
+  }, AWARD_WAY.find(w => w.k === way).t), " 입니다. 바꾸려면 뒤로 가서 [시상 방식] 을 고르고 다시 오세요. 아래에는 ", rows.length, "명이 순위대로 들어갑니다."), /*#__PURE__*/React.createElement("button", {
+    className: "prim",
+    disabled: busy,
+    style: {
+      padding: 15,
+      marginBottom: 7
+    },
+    onClick: async () => {
+      setBusy(true);
+      try {
+        await sendCard(await makeCard(), `${title.trim() || games[0] && games[0].place || "대회"}_시상`, say);
+      } catch (e) {
+        say("그림을 만들지 못했습니다");
+      }
+      setBusy(false);
+    }
+  }, busy ? "만드는 중…" : "📤 톡으로 보내기"), /*#__PURE__*/React.createElement("button", {
+    disabled: busy,
+    style: {
+      width: "100%",
+      padding: "14px 0",
+      borderRadius: 10,
+      fontSize: 14.5,
+      fontWeight: 700,
+      background: "#1E88E5",
+      color: "#fff",
+      opacity: busy ? .5 : 1
+    },
+    onClick: async () => {
+      setBusy(true);
+      try {
+        await saveCard(await makeCard(), `${title.trim() || games[0] && games[0].place || "대회"}_시상`, say);
+      } catch (e) {
+        say("그림을 만들지 못했습니다");
+      }
+      setBusy(false);
+    }
+  }, busy ? "만드는 중…" : "⬇ 사진첩에 저장"))));
 }
 
 /* ── 머리 그림 ──────────────────────────────
