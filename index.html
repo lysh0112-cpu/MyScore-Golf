@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-12 보내기 체크로 나눔 -->
+<!-- build: 1판-13 정산 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -5452,6 +5452,35 @@ function Stroke({
     title: t
   })));
   const [memo, setMemo] = useState("");
+  /* ★ 정산 (2026-09-04) — on=나눠 내기 · n=나눌 사람 · unit=올림 단위(1·100·1000) */
+  const [share, setShare] = useState({
+    on: false,
+    n: "4",
+    unit: 1
+  });
+  const [acc, setAcc] = useState("");
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get(SETTLE_ACC);
+        if (r?.value) setAcc(r.value);
+      } catch (e) {}
+    })();
+  }, []);
+  /* 계좌는 이 기기에 담아 다음 라운드에도 쓴다 (매번 칠 이유가 없다) */
+  const accFirst = useRef(true);
+  useEffect(() => {
+    if (accFirst.current) {
+      accFirst.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      try {
+        Promise.resolve(window.storage.set(SETTLE_ACC, acc)).catch(() => {});
+      } catch (e) {}
+    }, 600);
+    return () => clearTimeout(t);
+  }, [acc]);
   const last = lastSetup(data.games, sport);
   const known = knownNames(data.games);
   const who = names.map(n => (n || "").trim()).filter(Boolean);
@@ -5639,6 +5668,10 @@ function Stroke({
       setPars(use);
     }
     setNames(who); /* 빈 칸을 걷어내고 실제 인원만 남긴다 */
+    setShare(x => ({
+      ...x,
+      n: String(who.length)
+    })); /* 나눌 사람 기본값 = 이 조 인원 */
     setCards(who.map(() => Array(holes).fill("")));
     setPhase("play");
   };
@@ -5684,7 +5717,13 @@ function Stroke({
       winnerId: "",
       cost: totalCost,
       method: "list",
-      memo
+      memo,
+      /* ★ 정산 — 나눠 내기를 골랐을 때만 담는다. 안 고르면 결과표에 1인 금액이 안 나간다 */
+      split: share.on ? {
+        n: Math.max(1, Number(share.n) || 1),
+        unit: share.unit,
+        acc: acc.trim()
+      } : null
     };
     save({
       ...data,
@@ -6110,52 +6149,29 @@ function Stroke({
     people: names.length,
     title: "그 밖의 비용",
     hint: "골프장 밖에서 쓴 것. 유류비 · 톨비 · 뒤풀이 등."
-  }), totalCost > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "card",
-    style: {
-      padding: 14
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-      marginBottom: 9
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "lbl",
-    style: {
-      margin: 0
-    }
-  }, "모두 합쳐"), /*#__PURE__*/React.createElement("span", {
-    className: "num",
-    style: {
-      fontSize: 18,
-      color: "var(--accent)"
-    }
-  }, won(totalCost), "원")), /*#__PURE__*/React.createElement("div", {
-    className: "num",
-    style: {
-      fontSize: 12,
-      color: "var(--chalk)"
-    }
-  }, names.length, "명이면 1인 ", won(Math.round(totalCost / Math.max(1, names.length) / 100) * 100), "원 · 참고값"), (() => {
+  }), totalCost > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Settle, {
+    total: totalCost,
+    people: names.length,
+    share: share,
+    setShare: setShare,
+    acc: acc,
+    setAcc: setAcc
+  }), (() => {
     const by = costsByName([...green, ...outside]);
     const ks = Object.keys(by);
     if (!ks.length) return null;
     return /*#__PURE__*/React.createElement("div", {
+      className: "card",
       style: {
-        borderTop: "1px solid var(--line)",
-        paddingTop: 9,
-        marginTop: 9
+        padding: 14
       }
     }, /*#__PURE__*/React.createElement("div", {
       className: "lbl",
       style: {
         marginTop: 0
       }
-    }, "실제로 낸 사람"), ks.map(n => /*#__PURE__*/React.createElement("div", {
-      key: n,
+    }, "실제로 낸 사람"), ks.map(nm2 => /*#__PURE__*/React.createElement("div", {
+      key: nm2,
       style: {
         display: "flex",
         justifyContent: "space-between",
@@ -6166,9 +6182,9 @@ function Stroke({
       style: {
         color: "var(--chalk)"
       }
-    }, n), /*#__PURE__*/React.createElement("span", {
+    }, nm2), /*#__PURE__*/React.createElement("span", {
       className: "num"
-    }, won(by[n]), "원"))));
+    }, won(by[nm2]), "원"))));
   })()), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
     className: "lbl"
   }, "메모"), /*#__PURE__*/React.createElement("input", {
@@ -6196,6 +6212,270 @@ function Stroke({
   }));
 }
 
+/* ══ 정산 ═══════════════════════════════════
+   (2026-09-04 · 사용자 요청)
+
+   실제로 골프장에서 돈이 오가는 모양은 셋이다.
+
+     ① 혼자 본다        내가 쓴 돈만 적어둔다. 나눌 일이 없다
+     ② 총무가 먼저 낸다  다 계산하고 나중에 회원들에게 입금받는다
+     ③ 여러 조를 한꺼번에 총무가 4~5조 것을 다 계산한다
+                       ★ 이 조 인원과 나눌 인원이 다르다
+
+   ③ 때문에 "라운드 선수 수로 나누기" 를 쓸 수 없다.
+   2명이 친 조의 총무가 20명 것을 계산했으면 1인 금액이 열 배로 나온다.
+   그래서 ★ 나눌 사람 수를 사람이 직접 넣는다.
+
+   ⚠ 올림은 앱이 마음대로 하지 않는다 (사용자 지시).
+     [백 원] [천 원] 단추를 눌렀을 때만 올리고, 얼마가 남는지 함께 보여준다.  */
+
+const SETTLE_ACC = "golf:account:v1"; /* 입금 계좌 — 이 기기에 담아 다음에도 쓴다 */
+
+const ceilTo = (n, unit) => Math.ceil((Number(n) || 0) / unit) * unit;
+function Settle({
+  total,
+  people,
+  share,
+  setShare,
+  acc,
+  setAcc
+}) {
+  /* share = { on, n, unit }  ·  on=false 면 혼자 보는 것 */
+  const n = Math.max(1, Number(share.n) || 1);
+  const raw = total / n;
+  const each = share.unit > 1 ? ceilTo(raw, share.unit) : Math.round(raw);
+  const over = each * n - total;
+  const chip = on => ({
+    borderRadius: 10,
+    padding: "12px 0",
+    fontSize: 13.5,
+    fontWeight: 600,
+    textAlign: "center",
+    background: on ? ACCENT : "rgba(0,0,0,.32)",
+    color: on ? "#141200" : "#61798C"
+  });
+  const small = on => ({
+    flex: 1,
+    borderRadius: 8,
+    padding: "8px 0",
+    fontSize: 12,
+    fontWeight: 600,
+    background: on ? "rgba(232,184,56,.2)" : "rgba(0,0,0,.32)",
+    border: "1px solid " + (on ? "rgba(232,184,56,.5)" : "transparent"),
+    color: on ? ACCENT : "#61798C"
+  });
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      color: "var(--chalk)"
+    }
+  }, "모두 합쳐"), /*#__PURE__*/React.createElement("span", {
+    className: "num",
+    style: {
+      fontSize: 22,
+      fontWeight: 700,
+      color: ACCENT
+    }
+  }, won(total), "원")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: "#7E9AB0"
+    }
+  }, "이 라운드에 적은 비용을 다 더한 값입니다")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "lbl"
+  }, "정산"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShare({
+      ...share,
+      on: false
+    }),
+    style: chip(!share.on)
+  }, "혼자 봄"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShare({
+      ...share,
+      on: true
+    }),
+    style: chip(share.on)
+  }, "나눠 내기")), !share.on && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: "#6F8598",
+      lineHeight: 1.6,
+      marginTop: 8
+    }
+  }, "내가 쓴 돈만 적어둡니다. 나누지 않고 결과표에도 1인 금액이 안 나갑니다.")), share.on && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 14
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "lbl"
+  }, "나눌 사람"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      background: "rgba(0,0,0,.32)",
+      borderRadius: 10,
+      padding: "6px 12px",
+      marginBottom: 7
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: share.n,
+    inputMode: "numeric",
+    onChange: e => setShare({
+      ...share,
+      n: e.target.value.replace(/[^0-9]/g, "")
+    }),
+    style: {
+      flex: 1,
+      padding: 0,
+      textAlign: "center",
+      fontSize: 21,
+      fontWeight: 700,
+      background: "transparent",
+      border: "none",
+      color: ACCENT
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: "#7E9AB0"
+    }
+  }, "명"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 2
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShare({
+      ...share,
+      n: String(n + 1)
+    }),
+    "aria-label": "한 명 늘리기",
+    style: {
+      border: "1px solid rgba(232,184,56,.45)",
+      borderRadius: 4,
+      padding: "1px 7px",
+      fontSize: 9,
+      color: ACCENT
+    }
+  }, "▲"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShare({
+      ...share,
+      n: String(Math.max(1, n - 1))
+    }),
+    "aria-label": "한 명 줄이기",
+    style: {
+      border: "1px solid rgba(232,184,56,.45)",
+      borderRadius: 4,
+      padding: "1px 7px",
+      fontSize: 9,
+      color: ACCENT
+    }
+  }, "▼"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginBottom: 12
+    }
+  }, [people, 8, 12, 16, 20].filter((v, i, a) => v > 0 && a.indexOf(v) === i).slice(0, 5).map(v => /*#__PURE__*/React.createElement("button", {
+    key: v,
+    onClick: () => setShare({
+      ...share,
+      n: String(v)
+    }),
+    style: small(n === v)
+  }, v === people ? `이 조 ${v}명` : `${v}명`))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: "1px solid var(--line)",
+      paddingTop: 11
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "baseline",
+      justifyContent: "space-between"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13.5,
+      fontWeight: 700
+    }
+  }, "1인 보낼 금액"), /*#__PURE__*/React.createElement("span", {
+    className: "num",
+    style: {
+      fontSize: 21,
+      fontWeight: 700,
+      color: ACCENT
+    }
+  }, won(each), "원")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShare({
+      ...share,
+      unit: share.unit === 100 ? 1 : 100
+    }),
+    style: small(share.unit === 100)
+  }, "백 원 올림"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShare({
+      ...share,
+      unit: share.unit === 1000 ? 1 : 1000
+    }),
+    style: small(share.unit === 1000)
+  }, "천 원 올림")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6F8598",
+      lineHeight: 1.7,
+      marginTop: 8
+    }
+  }, share.unit > 1 ? /*#__PURE__*/React.createElement(React.Fragment, null, won(Math.round(raw)), "원에서 올렸습니다 · ", n, "명이면 ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "var(--ivory)"
+    }
+  }, won(over), "원"), "이 남습니다") : /*#__PURE__*/React.createElement(React.Fragment, null, won(total), " ÷ ", n, " = ", won(Math.round(raw)), "원 · 올리지 않았습니다")))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 14
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "lbl"
+  }, "입금 받을 곳"), /*#__PURE__*/React.createElement("input", {
+    value: acc,
+    onChange: e => setAcc(e.target.value),
+    placeholder: "국민 300-12-214754 이인승"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6F8598",
+      lineHeight: 1.6,
+      marginTop: 7
+    }
+  }, "한 번 넣으면 다음 라운드에도 그대로 나옵니다. 결과표 맨 아래에 붙습니다."))));
+}
 /* ══ 저장된 라운드의 타수 고치기 (8판) ═════════════
    치고 집에 가서 헤아려 보니 잘못 넣은 홀이 있더라 — 사용자 지적.
    기록 안에 홀별 타수·파가 다 들어 있으므로 고치기만 하면 된다.
@@ -7054,6 +7334,19 @@ function buildText(g, money = true, code = true, score = true) {
     if (paid.length) {
       L.push("   ─────────────");
       paid.forEach(p => L.push(`   ${p.name} ${won(p.paid)}원 냄`));
+    }
+    /* ★ 나눠 내기를 골랐을 때만 1인 금액과 계좌를 적는다 (2026-09-04 · 사용자 지시).
+          [혼자 봄] 이면 아무것도 안 나간다 — 나눌 일이 없는 라운드다.
+       ⚠ 올린 금액을 그대로 적는다. 앱이 다시 계산하면 화면과 달라진다 */
+    const sp2 = g.split;
+    if (sp2 && sp2.n > 0) {
+      const cost = g.cost || costsTotal(g.costs);
+      const unit = Number(sp2.unit) || 1;
+      const raw = cost / sp2.n;
+      const each = unit > 1 ? Math.ceil(raw / unit) * unit : Math.round(raw);
+      L.push("   ─────────────");
+      L.push(`   ${sp2.n}명 · 1인 ${won(each)}원`);
+      if (sp2.acc) L.push(`   ${sp2.acc}`);
     }
     /* ★ "1인 약 얼마" 줄을 뺐다 (2026-09-04 · 사용자 지시).
           사람마다 낸 것이 달라 균등하게 나눈 값은 오해만 부른다 */
