@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-22 사진 좌우 이동 · 롱기 니어 거리 -->
+<!-- build: 1판-23 거리 m · 이름칸 넓힘 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -3894,10 +3894,11 @@ function GolfAward({
         note: r ? String(r.n) : ""
       };
     });
-    const ex = extra.filter(x => (x.title || "").trim()).map(x => ({
+    const ex = extra.filter(x => (x.title || "").trim())
+    /* ★ 숫자만 받아 두고 m 은 여기서 붙인다 — 화면과 그림이 어긋나지 않게 */.map(x => ({
       title: x.title,
       who: x.who,
-      note: (x.note || "").trim()
+      note: (x.note || "").trim() ? `${String(x.note).trim()}m` : ""
     }));
     return drawAward({
       place: games[0] ? games[0].place : "",
@@ -4425,7 +4426,7 @@ function GolfAward({
       lineHeight: 1.6,
       marginBottom: 8
     }
-  }, "거리를 적으면 시상표에 함께 나옵니다 — 롱기스트 260m · 니어리스트 1.2m"), extra.map((x, i) => /*#__PURE__*/React.createElement("div", {
+  }, "거리는 숫자만 적으세요. 시상표에 m 이 붙어 나갑니다 — 롱기스트 260m · 니어리스트 1.2m"), extra.map((x, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     style: {
       display: "flex",
@@ -4440,10 +4441,10 @@ function GolfAward({
       title: e.target.value
     } : y)),
     style: {
-      width: 108,
+      width: 86,
       flexShrink: 0,
-      padding: "10px 9px",
-      fontSize: 13
+      padding: "10px 7px",
+      fontSize: 12.5
     }
   }), /*#__PURE__*/React.createElement("input", {
     value: x.who,
@@ -4457,21 +4458,40 @@ function GolfAward({
       minWidth: 0,
       padding: "10px 9px"
     }
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 2,
+      flexShrink: 0,
+      background: "rgba(0,0,0,.28)",
+      border: "1px solid var(--line)",
+      borderRadius: 8,
+      padding: "0 7px 0 4px",
+      height: 38
+    }
+  }, /*#__PURE__*/React.createElement("input", {
     value: x.note || "",
-    placeholder: "거리",
+    placeholder: "0",
+    inputMode: "decimal",
     onChange: e => setExtra(extra.map((y, k) => k === i ? {
       ...y,
-      note: e.target.value
+      note: e.target.value.replace(/[^0-9.]/g, "")
     } : y)),
     style: {
-      width: 62,
-      flexShrink: 0,
-      padding: "10px 6px",
+      width: 42,
+      padding: 0,
+      textAlign: "right",
       fontSize: 13,
-      textAlign: "center"
+      background: "transparent",
+      border: "none"
     }
-  }), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: "var(--chalk)"
+    }
+  }, "m")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setExtra(extra.filter((_, k) => k !== i)),
     style: {
       flexShrink: 0,
