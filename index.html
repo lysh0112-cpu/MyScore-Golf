@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-10 결과표 단추 정리 · 카드 불러오기 -->
+<!-- build: 1판-11 사진 서버 보관 · 지우면 함께 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -801,6 +801,43 @@ async function pushPhoto(dataUrl, token, me, gameId) {
     throw new Error(m);
   }
   return `${SB_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${path}`;
+}
+
+/* ★ 사진 한 장만 지운다 (2026-09-04).
+      기록 보기에서 라운드를 지우면 그 사진도 함께 지운다 — 안 지우면 서버에 쓰레기가 쌓인다.
+      확장자를 모르므로 둘 다 지워본다. 없는 것을 지워도 서버가 탈나지 않는다 */
+async function dropPhoto(token, me, gameId) {
+  const names = [`${me}/${gameId}.jpg`, `${me}/${gameId}.png`];
+  await fetch(`${SB_URL}/storage/v1/object/${PHOTO_BUCKET}`, {
+    method: "DELETE",
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prefixes: names
+    })
+  }).catch(() => {});
+}
+
+/* ★ 서버에서 라운드 한 건 지우기 (2026-09-04 · 사용자 지시).
+      전에는 폰에서만 지웠다. 서버에 남아 있어서 폰을 바꿔 로그인하면
+      지운 라운드가 다시 살아났다. 사진도 함께 지운다 */
+async function dropGame(g, token, me) {
+  if (g.sid) {
+    try {
+      await sbFetch(`/rest/v1/score_results?game_id=eq.${g.sid}`, {
+        method: "DELETE",
+        token
+      });
+    } catch (e) {}
+    await sbFetch(`/rest/v1/score_games?id=eq.${g.sid}`, {
+      method: "DELETE",
+      token
+    });
+  }
+  await dropPhoto(token, me, g.id);
 }
 
 /* 사진 지우기 — 기록을 비울 때 같이 지운다 (안 지우면 서버에 쓰레기가 쌓인다) */
@@ -6496,7 +6533,15 @@ function CardMaker({
       marginTop: 9,
       textAlign: "center"
     }
-  }, made ? "지난번에 만든 그대로 다시 만듭니다 · 사진도 바꿀 수 있습니다" : "사진과 스코어를 한 장의 그림으로 만듭니다"));
+  }, made ? "지난번에 만든 그대로 다시 만듭니다 · 사진도 바꿀 수 있습니다" : "사진과 스코어를 한 장의 그림으로 만듭니다"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "rgba(159,187,208,.6)",
+      lineHeight: 1.6,
+      marginTop: 6,
+      textAlign: "center"
+    }
+  }, "사진은 로그인하면 서버에도 보관됩니다"));
 
   /* ── 1단계: 사진을 어떻게 할까 ── */
   if (step === 1) return /*#__PURE__*/React.createElement("div", {
@@ -6715,19 +6760,20 @@ function RoundCard({
   data,
   save,
   say,
-  openSheet
+  openSheet,
+  onDrop
 }) {
   const [edit, setEdit] = useState(false);
   const [ask, setAsk] = useState(false);
   const holes = g.holes || 18;
   const par = g.par || (g.pars || []).slice(0, holes).reduce((t, v) => t + (Number(v) || 0), 0);
   const played = g.players.filter(p => Number(p.score) > 0).sort((a, b) => a.score - b.score);
+
+  /* ★ 서버에서도 지운다 (2026-09-04 · 사용자 지시).
+        전에는 폰에서만 지워서, 폰을 바꿔 로그인하면 지운 라운드가 다시 살아났다.
+        사진(Storage)도 함께 지운다 */
   const del = () => {
-    save({
-      ...data,
-      games: data.games.filter(x => x.id !== g.id)
-    });
-    say("라운드를 지웠습니다");
+    onDrop(g);
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "card",
@@ -6905,7 +6951,8 @@ function Log({
   data,
   save,
   say,
-  openSheet
+  openSheet,
+  onDrop
 }) {
   const [range, setRange] = useState("m3");
   const from = rangeFrom(range);
@@ -6958,7 +7005,8 @@ function Log({
     data: data,
     save: save,
     say: say,
-    openSheet: openSheet
+    openSheet: openSheet,
+    onDrop: onDrop
   })));
 }
 /* ══ 결과표 (카톡으로 나가는 글) ═══════════════
@@ -7861,7 +7909,28 @@ function App() {
     const pend = dataRef.current.games.filter(g => !g.sid).slice().reverse();
     for (const g of pend) {
       try {
-        const sid = await pushGame(g, token, dataRef.current.me);
+        /* ★ 사진을 먼저 Storage 로 올리고 기록에는 주소만 남긴다 (2026-09-04).
+              전에는 pushPhoto 를 만들어두고 아무 데서도 안 불렀다.
+              그래서 폰을 바꾸면 사진만 사라졌다 — 기록은 멀쩡한데 카드에 사진이 빠졌다.
+           ⚠ 사진이 안 올라가도 기록은 올린다. 사진 하나 때문에 라운드를 통째로 못 올리면 안 된다 */
+        let g2 = g;
+        if (isDataUrl(g.photo)) {
+          try {
+            const url = await pushPhoto(g.photo, token, dataRef.current.me, g.id);
+            g2 = {
+              ...g,
+              photo: url
+            };
+            await patch(p => ({
+              ...p,
+              games: p.games.map(x => x.id === g.id ? {
+                ...x,
+                photo: url
+              } : x)
+            }));
+          } catch (e) {}
+        }
+        const sid = await pushGame(g2, token, dataRef.current.me);
         await patch(p => ({
           ...p,
           games: p.games.map(x => x.id === g.id ? {
@@ -7908,6 +7977,29 @@ function App() {
       return;
     }
     if (!quiet) say(up || down ? `서버에 ${up}건 올리고 ${down}건 받았습니다` : "모두 보관돼 있습니다");
+  };
+
+  /* ★ 라운드 지우기 — 폰과 서버를 함께 (2026-09-04 · 사용자 지시)
+        ⚠ 폰에서 먼저 지운다. 서버가 안 되더라도 사용자 눈앞에서는 사라져야 한다.
+          서버에 남으면 다음에 내려받아 되살아나므로, 못 지운 것은 알려준다 */
+  const dropRound = async g => {
+    await patch(p => ({
+      ...p,
+      games: p.games.filter(x => x.id !== g.id)
+    }));
+    const d = dataRef.current;
+    if (!d.me || !d.session?.token) return say("라운드를 지웠습니다");
+    try {
+      const token = await sbToken(d.session, s2 => patch(p => ({
+        ...p,
+        session: s2
+      })));
+      if (!token) return say("라운드를 지웠습니다 · 서버는 다음 로그인 때 정리됩니다");
+      await dropGame(g, token, d.me);
+      say("라운드를 지웠습니다");
+    } catch (e) {
+      say("폰에서는 지웠습니다. 서버에서 못 지웠습니다");
+    }
   };
 
   /* 저장이 끝나면 잠깐 뒤에 저절로 올린다 (사용자가 누를 필요 없게) */
@@ -7980,7 +8072,8 @@ function App() {
     data: data,
     save: save,
     say: say,
-    openSheet: setSheet
+    openSheet: setSheet,
+    onDrop: dropRound
   })), tab === "award" && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "18px 16px 0"
