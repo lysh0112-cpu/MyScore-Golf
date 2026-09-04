@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-14 정산 인원 4의 배수 -->
+<!-- build: 1판-15 내 기록 넣기 · 회사 정보 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -3637,6 +3637,8 @@ function GolfAward({
   const [drawing, setDrawing] = useState(false); // 뽑기 화면이 떠 있는가
   const [pickBy, setPickBy] = useState({}); // { 홀번호: 부른 사람 } — 시상 그림에 박는다
   const [wipe, setWipe] = useState(false); // 처음부터 다시 — 물어보는 중
+  const [pickMine, setPickMine] = useState(false); // 내 기록이 여럿일 때 고르는 중
+  const myGames = golfGames(data.games).filter(g => Array.isArray(g.pars) && g.pars.length).slice(0, 8);
 
   /* 그림에 넣을 것들을 모아둔다 */
   const makeCard = () => {
@@ -4538,7 +4540,28 @@ function GolfAward({
         fontWeight: 700,
         color: "var(--accent)"
       }
-    }, i + 1, "조"), /*#__PURE__*/React.createElement("span", {
+    }, i + 1, "조"), i === 0 && myGames.length > 0 && !t.saved && /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        if (myGames.length === 1) {
+          const code = enc(myGames[0]);
+          setTeams(teams.map((x, k) => k === 0 ? {
+            ...x,
+            text: code,
+            saved: false
+          } : x));
+          say("내 기록을 넣었습니다 · [저장] 을 누르세요");
+        } else setPickMine(true);
+      },
+      style: {
+        fontSize: 11.5,
+        fontWeight: 700,
+        padding: "6px 10px",
+        borderRadius: 7,
+        background: "rgba(232,184,56,.16)",
+        border: "1px solid rgba(232,184,56,.5)",
+        color: "var(--accent)"
+      }
+    }, "⛳ 내 기록 넣기"), /*#__PURE__*/React.createElement("span", {
       style: {
         flex: 1,
         fontSize: 12,
@@ -4727,42 +4750,77 @@ function GolfAward({
       border: "1px solid var(--line)",
       color: "var(--chalk)"
     }
-  }, "🗑 처음부터 다시 (다음 대회 준비)")), data.games.filter(g => g.sport === "golf" && Array.isArray(g.pars)).length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "🗑 처음부터 다시 (다음 대회 준비)")), pickMine && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setPickMine(false),
     style: {
-      marginTop: 12,
-      borderTop: "1px solid var(--line)",
-      paddingTop: 11
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,.8)",
+      zIndex: 97,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "var(--bg)",
+      borderRadius: 14,
+      padding: 18,
+      width: "100%",
+      maxWidth: 360,
+      maxHeight: "80vh",
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15.5,
+      fontWeight: 700,
+      marginBottom: 4
+    }
+  }, "어느 라운드를 넣을까요?"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "var(--chalk)",
+      marginBottom: 12
+    }
+  }, "1조 칸에 들어갑니다"), myGames.map(g => /*#__PURE__*/React.createElement("button", {
+    key: g.id,
+    onClick: () => {
+      setTeams(teams.map((x, k) => k === 0 ? {
+        ...x,
+        text: enc(g),
+        saved: false
+      } : x));
+      setPickMine(false);
+      say("내 기록을 넣었습니다 · [저장] 을 누르세요");
+    },
+    style: {
+      width: "100%",
+      textAlign: "left",
+      padding: "12px 13px",
+      borderRadius: 9,
+      border: "1px solid var(--line)",
+      marginBottom: 7,
+      fontSize: 13.5
     }
   }, /*#__PURE__*/React.createElement("span", {
-    className: "lbl"
-  }, "내 기록에서 바로 넣기"), /*#__PURE__*/React.createElement("div", {
+    className: "num"
+  }, g.date.slice(5)), "  ", g.place || "골프장", /*#__PURE__*/React.createElement("span", {
     style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6
+      color: "var(--chalk)",
+      fontSize: 11.5
     }
-  }, data.games.filter(g => g.sport === "golf" && Array.isArray(g.pars)).slice(0, 6).map(g => /*#__PURE__*/React.createElement("button", {
-    key: g.id,
-    className: "chip",
+  }, "  ", (g.players || []).length, "명"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPickMine(false),
     style: {
-      padding: "8px 12px",
-      fontSize: 12
-    },
-    onClick: () => {
-      const empty = teams.findIndex(x => !(x.text || "").trim());
-      const code = enc(g);
-      if (empty >= 0) setTeams(teams.map((x, k) => k === empty ? {
-        ...x,
-        text: code,
-        saved: false
-      } : x));else setTeams([...teams, {
-        id: Math.max(0, ...teams.map(x => x.id)) + 1,
-        text: code,
-        saved: false
-      }]);
-      say("내 기록을 넣었습니다. [저장] 을 누르세요");
+      width: "100%",
+      padding: "11px 0",
+      fontSize: 13,
+      color: "#7d8f9b"
     }
-  }, g.date.slice(5), " ", g.place || "골프장"))))));
+  }, "취소")))));
 }
 
 /* ── 머리 그림 ──────────────────────────────
@@ -8106,21 +8164,11 @@ function Ask({
       textAlign: "center",
       marginBottom: 9
     }
-  }, "✉️ 메일로 보내기")), /*#__PURE__*/React.createElement("button", {
-    className: "ghost",
-    onClick: async () => {
-      try {
-        await navigator.clipboard.writeText(MAIL);
-        say("메일 주소를 복사했습니다");
-      } catch (e) {
-        say(MAIL);
-      }
-    },
+  }, "✉️ 메일로 보내기")), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13.5,
-      marginBottom: 20
+      height: 20
     }
-  }, "주소 복사 (", MAIL, ")"), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       paddingTop: 18,
       borderTop: "1px solid var(--line)",
@@ -8134,7 +8182,7 @@ function Ask({
       fontWeight: 600,
       marginBottom: 3
     }
-  }, "(주)명연재 | 대표 오연희"), /*#__PURE__*/React.createElement("div", null, "사업자등록번호 000-00-00000"), /*#__PURE__*/React.createElement("div", null, "서울시 강북구 솔매로45길 95, 201호"), /*#__PURE__*/React.createElement("div", {
+  }, "(주)명연재 | 대표 오연희"), /*#__PURE__*/React.createElement("div", null, "사업자등록번호 296-86-04182"), /*#__PURE__*/React.createElement("div", null, "법인등록번호 110111-0969044"), /*#__PURE__*/React.createElement("div", null, "서울특별시 강북구 솔매로45길 95, 2층 (미아동)"), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 3
     }
