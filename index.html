@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-8 열쇠 저장 표시 -->
+<!-- build: 1판-9 콤마 · 날짜칸 · 균등줄 뺌 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -517,12 +517,12 @@ function CostList({
       padding: "10px 10px"
     }
   }), /*#__PURE__*/React.createElement("input", {
-    type: "number",
+    type: "text",
     inputMode: "numeric",
-    value: c.amount,
+    value: c.amount === "" ? "" : won(c.amount),
     placeholder: "0",
     onChange: e => put(i, {
-      amount: e.target.value
+      amount: e.target.value.replace(/[^0-9]/g, "")
     }),
     style: {
       flex: 1,
@@ -5135,12 +5135,12 @@ function RoundSetup({
   }, "모두 ", holes, "홀 · 코스 파 ", coursePar, back === 0 ? " · 전반만 칩니다" : " · 후반을 0으로 두면 전반만 칩니다")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 12,
+      gap: 10,
       marginBottom: 18
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      flex: 1,
+      flex: 1.15,
       minWidth: 0
     }
   }, /*#__PURE__*/React.createElement(Lbl, null, "날짜"), /*#__PURE__*/React.createElement("input", {
@@ -5150,11 +5150,13 @@ function RoundSetup({
     style: {
       background: "rgba(0,0,0,.35)",
       border: "none",
-      borderRadius: 9
+      borderRadius: 9,
+      fontSize: 13.5,
+      padding: "11px 8px"
     }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
-      flex: 1.3,
+      flex: 1,
       minWidth: 0
     }
   }, /*#__PURE__*/React.createElement(Lbl, null, park ? "파크골프장" : "골프장"), /*#__PURE__*/React.createElement("input", {
@@ -6987,8 +6989,8 @@ function buildText(g, money = true, code = true) {
       L.push("   ─────────────");
       paid.forEach(p => L.push(`   ${p.name} ${won(p.paid)}원 냄`));
     }
-    const n = g.players.length || 1;
-    L.push(`   ${n}명이면 1인 약 ${won(Math.round((g.cost || 0) / n / 100) * 100)}원`);
+    /* ★ "1인 약 얼마" 줄을 뺐다 (2026-09-04 · 사용자 지시).
+          사람마다 낸 것이 달라 균등하게 나눈 값은 오해만 부른다 */
   }
   if (g.memo) L.push(`📝 ${g.memo}`);
   if (!code) return L.join("\n");
