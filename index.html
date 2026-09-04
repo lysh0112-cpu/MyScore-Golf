@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-6 사진으로 스코어 읽기 -->
+<!-- build: 1판-7 열쇠 저장 확인 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -2320,10 +2320,20 @@ const aiKeyGet = async () => {
     return "";
   }
 };
+/* ★ 담고 나서 다시 읽어 확인한다 (2026-09-04).
+      전에는 실패해도 "열쇠를 넣었습니다" 라고 말했다 — 사용자가 넣은 줄 알고 넘어간다.
+      시크릿 창 · 쿠키 차단 · 저장칸이 꽉 찬 기기에서 조용히 실패한다 */
 const aiKeySet = async v => {
   try {
-    if (v) await window.storage.set(AI_KEY, v);else await window.storage.delete(AI_KEY);
-  } catch (e) {}
+    if (!v) {
+      await window.storage.delete(AI_KEY);
+      return true;
+    }
+    await window.storage.set(AI_KEY, v);
+    return (await aiKeyGet()) === v; /* 되읽어서 진짜 담겼는지 본다 */
+  } catch (e) {
+    return false;
+  }
 };
 
 /* 사진 한 장 → 홀별 타수 표.
@@ -7176,6 +7186,7 @@ function Account({
         ⚠ 나중에 Supabase Edge Function 이 생기면 이 칸을 없애고 서버가 갖게 한다 */
   const [aikey, setAikey] = useState("");
   const [keyOpen, setKeyOpen] = useState(false);
+  const [keyErr, setKeyErr] = useState(false);
   useEffect(() => {
     (async () => setAikey(await aiKeyGet()))();
   }, []);
@@ -7576,7 +7587,9 @@ function Account({
       fontSize: 13.5
     },
     onClick: async () => {
-      await aiKeySet(aikey);
+      const okSave = await aiKeySet(aikey);
+      if (!okSave) return setKeyErr(true);
+      setKeyErr(false);
       say(aikey ? "열쇠를 넣었습니다" : "열쇠를 지웠습니다");
     }
   }, "저장"), /*#__PURE__*/React.createElement("button", {
@@ -7590,7 +7603,17 @@ function Account({
       await aiKeySet("");
       say("열쇠를 지웠습니다");
     }
-  }, "지우기")), /*#__PURE__*/React.createElement("div", {
+  }, "지우기")), keyErr && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "rgba(226,75,74,.12)",
+      border: "1px solid rgba(226,75,74,.5)",
+      borderRadius: 9,
+      padding: "11px 13px",
+      fontSize: 12,
+      lineHeight: 1.7,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("b", null, "저장하지 못했습니다."), /*#__PURE__*/React.createElement("br", null), "시크릿 창에서는 담기지 않습니다. 보통 창에서 다시 해보세요. 쿠키를 막아두셨다면 그 설정도 풀어야 합니다."), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "#6F8598",
