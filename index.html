@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-17 사진 고르기 -->
+<!-- build: 1판-20 미리보기 · 네트 정수 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -1505,6 +1505,149 @@ function drawCard(o) {
 }
 
 /* 그림을 파일로 뽑는다 */
+/* ══ 보내기 전 미리보기 ═════════════════════════
+   (2026-09-05 · 사용자 요청)
+   전에는 [톡으로 보내기] 를 누르는 순간 폰 공유창이 떠서
+   무엇이 나가는지 못 보고 보냈다. 글자가 잘렸는지도 몰랐다.
+   ★ 스코어카드와 시상표가 같은 창을 쓴다 — 한 곳만 고치면 둘 다 바뀐다 */
+function CardPreview({
+  canvas,
+  name,
+  say,
+  onClose,
+  onBack
+}) {
+  const [url, setUrl] = useState("");
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    let live = true,
+      made = "";
+    (async () => {
+      const blob = await cardBlob(canvas, "image/jpeg");
+      if (!blob || !live) return;
+      made = URL.createObjectURL(blob);
+      setUrl(made);
+      setKb(Math.round(blob.size / 1024));
+    })();
+    return () => {
+      live = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [canvas]);
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,.85)",
+      zIndex: 98,
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "var(--bg)",
+      width: "100%",
+      maxWidth: 520,
+      borderRadius: "16px 16px 0 0",
+      padding: "16px 14px",
+      paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+      maxHeight: "92vh",
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: 700
+    }
+  }, "이렇게 나갑니다"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      fontSize: 13,
+      padding: "7px 13px",
+      borderRadius: 8,
+      border: "1px solid var(--line)",
+      color: "var(--chalk)"
+    }
+  }, "← 뒤로")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#000",
+      border: "1px solid var(--line)",
+      borderRadius: 10,
+      padding: 8,
+      marginBottom: 6
+    }
+  }, url ? /*#__PURE__*/React.createElement("img", {
+    src: url,
+    alt: "",
+    style: {
+      width: "100%",
+      display: "block",
+      borderRadius: 6
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "50px 0",
+      textAlign: "center",
+      color: "var(--chalk)",
+      fontSize: 13
+    }
+  }, "그림을 만드는 중…")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6F8598",
+      lineHeight: 1.6,
+      marginBottom: 14
+    }
+  }, canvas.width, " × ", canvas.height, kb ? ` · 약 ${kb}KB` : "", " · 글자가 잘리지 않았는지 확인하세요"), /*#__PURE__*/React.createElement("button", {
+    className: "prim",
+    disabled: !url,
+    style: {
+      padding: 15,
+      marginBottom: 7
+    },
+    onClick: async () => {
+      await sendCard(canvas, name, say);
+      onClose();
+    }
+  }, "📤 톡으로 보내기"), /*#__PURE__*/React.createElement("button", {
+    disabled: !url,
+    style: {
+      width: "100%",
+      padding: "14px 0",
+      borderRadius: 10,
+      fontSize: 14,
+      fontWeight: 700,
+      background: "#1E88E5",
+      color: "#fff",
+      opacity: url ? 1 : .5,
+      marginBottom: 7
+    },
+    onClick: async () => {
+      await saveCard(canvas, name, say);
+      onClose();
+    }
+  }, "⬇ 사진첩에 저장"), /*#__PURE__*/React.createElement("button", {
+    onClick: onBack || onClose,
+    style: {
+      width: "100%",
+      padding: "12px 0",
+      borderRadius: 10,
+      fontSize: 13.5,
+      border: "1px solid var(--line)",
+      color: "var(--chalk)"
+    }
+  }, "고쳐서 다시 만들기")));
+}
 function cardBlob(canvas, type) {
   return new Promise(ok => {
     const q = type === "image/png" ? undefined : 0.9;
@@ -3076,7 +3219,7 @@ function holeTable(x, o, top, W) {
     if (i >= G.holes) return;
     x.fillStyle = "#E8B838";
     x.beginPath();
-    x.arc(cellX(i), top - 30, 5, 0, Math.PI * 2);
+    x.arc(cellX(i), top - 44, 5, 0, Math.PI * 2);
     x.fill();
   });
 
@@ -3086,10 +3229,9 @@ function holeTable(x, o, top, W) {
     x.fillStyle = hid.has(i) ? "#E8B838" : "#7B93A8";
     x.font = `${hid.has(i) ? 700 : 400} 19px 'Oswald', sans-serif`;
     x.fillText(String(i + 1), cellX(i), top - 22);
-    if (hid.has(i)) {
-      x.font = "500 12px 'IBM Plex Sans KR', sans-serif";
-      x.fillText("히든", cellX(i), top - 6);
-    }
+    /* ★ "히든" 글자를 뺐다 (2026-09-05 · 사용자 지적).
+          숫자와 겹쳐 10 · 14 · 16 이 뭉개졌다. 점 하나로 충분하다.
+          점은 숫자 위쪽에 찍는다 — 아래는 파가 있어 자리가 없다 */
     x.fillStyle = "#E8B838";
     x.font = "500 19px 'Oswald', sans-serif";
     x.fillText(String(pars[i] || "-"), cellX(i), top + 14);
@@ -3167,10 +3309,13 @@ function holeTable(x, o, top, W) {
     } else {
       x.fillStyle = "#7B93A8";
       x.font = "500 20px 'Oswald', sans-serif";
-      x.fillText(r.handi === null || r.handi === undefined ? "-" : String(r.handi), G.xH + 56, y);
+      x.fillText(r.handi === null || r.handi === undefined ? "-" : String(Math.round(r.handi)), G.xH + 56, y);
       x.fillStyle = gold ? "#E8B838" : "#F4EEDF";
       x.font = "700 25px 'Oswald', sans-serif";
-      x.fillText(r.net === null || r.net === undefined ? "-" : String(r.net), G.xN + 62, y);
+      /* ★ 그림에는 정수로 (2026-09-05 · 사용자 지시).
+            계산과 순위는 소수 그대로 쓰고, 앱 안 화면에서는 소수로 보여준다 —
+            동점이라고 우기는 일이 있어 근거를 남겨둔다 */
+      x.fillText(r.net === null || r.net === undefined ? "-" : String(Math.round(r.net)), G.xN + 62, y);
     }
     x.textAlign = "left";
     y += ROW;
@@ -3676,6 +3821,7 @@ function GolfAward({
   const [pickBy, setPickBy] = useState({}); // { 홀번호: 부른 사람 } — 시상 그림에 박는다
   const [wipe, setWipe] = useState(false); // 처음부터 다시 — 물어보는 중
   const [pickMine, setPickMine] = useState(false); // 내 기록이 여럿일 때 고르는 중
+  const [prev, setPrev] = useState(null); // ★ 보내기 전 미리보기
   const [teamOpen, setTeamOpen] = useState(false); // ★ 조별 기록 넣기 모달
   const [cardOpen, setCardOpen] = useState(false); // ★ 시상표 모달
   const [title, setTitle] = useState(""); // 대회 이름
@@ -3847,9 +3993,11 @@ function GolfAward({
       const i = k === "win" ? 0 : k === "second" ? 1 : 2;
       const r = ranked[i];
       if (!r || !ready) return null;
+      /* ★ 네트는 계산은 소수로, 보여줄 때만 반올림한다 (2026-09-05).
+            등수는 70.6 과 70.4 를 가려야 하므로 소수를 버리면 안 된다 */
       return {
         who: r.name,
-        n: way === "gross" ? `${r.gross}타` : `네트 ${r.net}`
+        n: way === "gross" ? `${r.gross}타` : `네트 ${Math.round(r.net)}`
       };
     }
     if (k === "birdie") return topBy(r => r.z.birdie);
@@ -3983,13 +4131,19 @@ function GolfAward({
     k: "auto",
     t: "🎲 자동 추첨",
     s: "앱이 뽑습니다"
-  }].map(m => /*#__PURE__*/React.createElement("button", {
+  }
+  /* ★ 고르기만 하고 아무 일도 안 일어나던 자리 (2026-09-05 · 사용자 지적).
+        [자동 추첨] 을 골랐는데 그 아래 [🎲 추첨] 을 한 번 더 눌러야 뽑혔다.
+        고르는 순간 뽑는다. 다시 뽑고 싶으면 [🎲 다시 추첨] 을 누른다 */].map(m => /*#__PURE__*/React.createElement("button", {
     key: m.k,
     onClick: () => {
       setPickWay(m.k);
-      setHidden([]);
       setPickBy({});
       setEditHidden(false);
+      if (m.k === "auto") {
+        setHidden(drawHidden(need, holes));
+        say("히든홀을 뽑았습니다");
+      } else setHidden([]);
     },
     className: "chip" + (pickWay === m.k ? " on" : ""),
     style: {
@@ -4003,7 +4157,17 @@ function GolfAward({
       opacity: .7,
       fontWeight: 400
     }
-  }, m.s)))), /*#__PURE__*/React.createElement("div", {
+  }, m.s)))), hidden.length !== need && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "rgba(226,75,74,.12)",
+      border: "1px solid rgba(226,75,74,.5)",
+      borderRadius: 9,
+      padding: "11px 13px",
+      fontSize: 12,
+      lineHeight: 1.7,
+      marginBottom: 9
+    }
+  }, "히든홀 ", need, "개를 뽑아야 핸디 · 네트 · 시상이 나옵니다. 지금은 ", hidden.length, "개입니다."), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "baseline",
@@ -4050,7 +4214,7 @@ function GolfAward({
       border: "1px solid var(--line)",
       color: "var(--accent)"
     }
-  }, "🎲 추첨"), /*#__PURE__*/React.createElement("button", {
+  }, "🎲 다시 추첨"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setEditHidden(!editHidden),
     style: {
       fontSize: 12,
@@ -4540,7 +4704,11 @@ function GolfAward({
       marginRight: 14,
       lineHeight: 1.6
     }
-  }, "이 표는 ", /*#__PURE__*/React.createElement("b", {
+  }, "그림에는 네트가 ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "var(--ivory)"
+    }
+  }, "정수"), "로 나가지만 여기 숫자가 실제 값입니다. 소수까지 가려 순위를 매깁니다.", /*#__PURE__*/React.createElement("br", null), "이 표는 ", /*#__PURE__*/React.createElement("b", {
     style: {
       color: "var(--ivory)"
     }
@@ -4951,7 +5119,12 @@ function GolfAward({
       fontSize: 13,
       color: "#7d8f9b"
     }
-  }, "취소")))))), cardOpen && /*#__PURE__*/React.createElement("div", {
+  }, "취소")))))), prev && /*#__PURE__*/React.createElement(CardPreview, {
+    canvas: prev,
+    say: say,
+    name: `${title.trim() || games[0] && games[0].place || "대회"}_시상`,
+    onClose: () => setPrev(null)
+  }), cardOpen && /*#__PURE__*/React.createElement("div", {
     onClick: () => setCardOpen(false),
     style: {
       position: "fixed",
@@ -5072,56 +5245,35 @@ function GolfAward({
     }
   }, "시상표 왼쪽에 크게 들어갑니다. 없으면 사진 없이 만듭니다."), /*#__PURE__*/React.createElement("div", {
     style: {
-      background: "rgba(0,0,0,.28)",
+      background: ready ? "rgba(0,0,0,.28)" : "rgba(226,75,74,.12)",
+      border: ready ? "none" : "1px solid rgba(226,75,74,.5)",
       borderRadius: 10,
       padding: "12px 13px",
       fontSize: 11.5,
-      color: "var(--chalk)",
+      color: ready ? "var(--chalk)" : "#f0a9a9",
       lineHeight: 1.7,
       marginBottom: 14
     }
-  }, "지금 방식은 ", /*#__PURE__*/React.createElement("b", {
+  }, ready ? /*#__PURE__*/React.createElement(React.Fragment, null, "지금 방식은 ", /*#__PURE__*/React.createElement("b", {
     style: {
       color: "var(--ivory)"
     }
-  }, AWARD_WAY.find(w => w.k === way).t), " 입니다. 바꾸려면 뒤로 가서 [시상 방식] 을 고르고 다시 오세요. 아래에는 ", rows.length, "명이 순위대로 들어갑니다."), /*#__PURE__*/React.createElement("button", {
+  }, AWARD_WAY.find(w => w.k === way).t), " 입니다. 바꾸려면 뒤로 가서 [시상 방식] 을 고르고 다시 오세요. 아래에는 ", rows.length, "명이 순위대로 들어갑니다.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", null, "히든홀을 아직 안 뽑았습니다."), /*#__PURE__*/React.createElement("br", null), need, "개를 뽑아야 핸디 · 네트 · 시상 내역이 나옵니다. 뒤로 가서 [히든홀] 에서 뽑아주세요.")), /*#__PURE__*/React.createElement("button", {
     className: "prim",
-    disabled: busy,
+    disabled: busy || !ready,
     style: {
-      padding: 15,
-      marginBottom: 7
+      padding: 15
     },
     onClick: async () => {
       setBusy(true);
       try {
-        await sendCard(await makeCard(), `${title.trim() || games[0] && games[0].place || "대회"}_시상`, say);
+        setPrev(await makeCard());
       } catch (e) {
         say("그림을 만들지 못했습니다");
       }
       setBusy(false);
     }
-  }, busy ? "만드는 중…" : "📤 톡으로 보내기"), /*#__PURE__*/React.createElement("button", {
-    disabled: busy,
-    style: {
-      width: "100%",
-      padding: "14px 0",
-      borderRadius: 10,
-      fontSize: 14.5,
-      fontWeight: 700,
-      background: "#1E88E5",
-      color: "#fff",
-      opacity: busy ? .5 : 1
-    },
-    onClick: async () => {
-      setBusy(true);
-      try {
-        await saveCard(await makeCard(), `${title.trim() || games[0] && games[0].place || "대회"}_시상`, say);
-      } catch (e) {
-        say("그림을 만들지 못했습니다");
-      }
-      setBusy(false);
-    }
-  }, busy ? "만드는 중…" : "⬇ 사진첩에 저장"))));
+  }, busy ? "만드는 중…" : "🏆 시상표 만들어 보기"))));
 }
 
 /* ── 머리 그림 ──────────────────────────────
@@ -5791,6 +5943,7 @@ function Stroke({
   const [resumed, setResumed] = useState(false);
   const [ask, setAsk] = useState(false); /* 설정으로 돌아갈까요 */
   const [shot, setShot] = useState(false); /* 사진으로 스코어 읽기 */
+  const [prev, setPrev] = useState(null); /* 보내기 전 미리보기 */
   const liveReady = useRef(false); // 되살리기가 끝나야 담기 시작
   const [award, setAward] = useState(false);
   const [photo, setPhoto] = useState("");
@@ -6396,59 +6549,18 @@ function Stroke({
       color: "var(--chalk)",
       fontSize: 13
     }
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 8,
-      marginTop: 12
-    }
-  }, [["save", "⬇ 사진첩에 저장", "#1E88E5"], ["copy", "⧉ 복사하기", "#2c2c2c"]].map(([k, t, bg]) => /*#__PURE__*/React.createElement("button", {
-    key: k,
-    disabled: busy,
-    style: {
-      padding: "14px 0",
-      borderRadius: 9,
-      fontSize: 14,
-      fontWeight: 700,
-      background: bg,
-      color: "#fff",
-      opacity: busy ? .5 : 1
-    },
-    onClick: async () => {
-      setBusy(true);
-      try {
-        const cv = await drawCard({
-          place,
-          courseA,
-          courseB,
-          date,
-          holes,
-          pars,
-          names,
-          cards,
-          photo,
-          trim,
-          memo: cardMemo
-        });
-        if (k === "save") await saveCard(cv, `${place || "라운드"}_${date}`, say);else await copyCard(cv, say);
-      } catch (err) {
-        say("그림을 만들지 못했습니다");
-      }
-      setBusy(false);
-    }
-  }, busy ? "만드는 중…" : t))), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("button", {
     className: "prim",
     disabled: busy,
     style: {
       width: "100%",
-      marginTop: 8,
-      padding: 14
+      marginTop: 12,
+      padding: 15
     },
     onClick: async () => {
       setBusy(true);
       try {
-        const cv = await drawCard({
+        setPrev(await drawCard({
           place,
           courseA,
           courseB,
@@ -6460,33 +6572,20 @@ function Stroke({
           photo,
           trim,
           memo: cardMemo
-        });
-        await sendCard(cv, `${place || "라운드"}_${date}`, say);
+        }));
       } catch (err) {
         say("그림을 만들지 못했습니다");
       }
       setBusy(false);
     }
-  }, busy ? "만드는 중…" : "📤 톡으로 바로 보내기"), /*#__PURE__*/React.createElement("div", {
+  }, busy ? "만드는 중…" : "🖼 스코어카드 만들어 보기"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
       color: "rgba(159,187,208,.6)",
       lineHeight: 1.6,
       marginTop: 9
     }
-  }, /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: "var(--ivory)"
-    }
-  }, "저장"), "은 폰 사진첩에 그림이 들어갑니다.", " ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: "var(--ivory)"
-    }
-  }, "복사"), "는 톡 입력창에서 바로 붙여넣을 수 있습니다.", " ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: "var(--ivory)"
-    }
-  }, "바로 보내기"), "는 공유창이 열려 톡을 고르면 됩니다.")), /*#__PURE__*/React.createElement(CostList, {
+  }, "그림을 먼저 보여드립니다. 확인하고 나서 톡으로 보내거나 사진첩에 저장하세요.")), /*#__PURE__*/React.createElement(CostList, {
     costs: green,
     setCosts: setGreen,
     people: names.length,
@@ -6558,6 +6657,11 @@ function Stroke({
     say: say,
     onDone: applyRead,
     onClose: () => setShot(false)
+  }), prev && /*#__PURE__*/React.createElement(CardPreview, {
+    canvas: prev,
+    say: say,
+    name: `${place || "라운드"}_${date}`,
+    onClose: () => setPrev(null)
   }));
 }
 
@@ -7018,6 +7122,7 @@ function CardMaker({
 }) {
   const g = game;
   const [busy, setBusy] = useState(false);
+  const [prev, setPrev] = useState(null); /* 보내기 전 미리보기 */
   /* 0 접힘 · 1 사진을 어떻게 할지 묻는 중 · 2 만들어 보내기 */
   /* ★ 8판 — 기록의 [🖼 카드] 로 들어오면 접힌 채로 두지 않는다 */
   const [step, setStep] = useState(g.openCard ? 1 : 0);
@@ -7088,11 +7193,14 @@ function CardMaker({
     return () => clearTimeout(t);
   }, [memo]); // eslint-disable-line
   const setMemo = v => setMemoRaw(v);
-  const make = async kind => {
+
+  /* ★ 바로 안 내보낸다 — 그림을 먼저 보여준다 (2026-09-05 · 사용자 요청).
+        전에는 누르는 순간 폰 공유창이 떠서 무엇이 나가는지 못 보고 보냈다 */
+  const make = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      const cv = await drawCard({
+      setPrev(await drawCard({
         place: g.place,
         courseA: g.courseA,
         courseB: g.courseB,
@@ -7104,9 +7212,7 @@ function CardMaker({
         photo,
         trim,
         memo
-      });
-      const nm = `${g.place || "라운드"}_${g.date}`;
-      if (kind === "save") await saveCard(cv, nm, say);else if (kind === "copy") await copyCard(cv, say);else await sendCard(cv, nm, say);
+      }));
     } catch (err) {
       say("그림을 만들지 못했습니다");
     }
@@ -7298,64 +7404,30 @@ function CardMaker({
     setMemo: setMemo
   }), /*#__PURE__*/React.createElement("button", {
     disabled: busy,
-    onClick: () => make("save"),
+    onClick: make,
     style: {
       width: "100%",
       padding: "15px 0",
       borderRadius: 9,
       fontSize: 15,
       fontWeight: 700,
-      background: "#1E88E5",
-      color: "#fff",
-      opacity: busy ? .5 : 1
-    }
-  }, busy ? "만드는 중…" : "⬇ 그림을 사진첩에 저장"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 8,
-      marginTop: 8
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    disabled: busy,
-    onClick: () => make("send"),
-    style: {
-      padding: "13px 0",
-      borderRadius: 9,
-      fontSize: 13.5,
-      fontWeight: 700,
       background: "#4FB286",
       color: "#08261A",
       opacity: busy ? .5 : 1
     }
-  }, "📤 그림 톡으로"), /*#__PURE__*/React.createElement("button", {
-    disabled: busy,
-    onClick: () => make("copy"),
-    style: {
-      padding: "13px 0",
-      borderRadius: 9,
-      fontSize: 13.5,
-      fontWeight: 700,
-      background: "#2c2c2c",
-      color: "#fff",
-      opacity: busy ? .5 : 1
-    }
-  }, "⧉ 그림 복사")), /*#__PURE__*/React.createElement("div", {
+  }, busy ? "만드는 중…" : "🖼 스코어카드 만들어 보기"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
       color: "rgba(159,187,208,.6)",
       lineHeight: 1.6,
       marginTop: 9
     }
-  }, "위쪽 ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: "var(--ivory)"
-    }
-  }, "복사하기·카톡으로 보내기"), "는 글자로 된 결과표이고, 여기 세 단추는 ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: "var(--ivory)"
-    }
-  }, "그림"), "입니다."));
+  }, "그림을 먼저 보여드립니다. 확인하고 나서 톡으로 보내거나 사진첩에 저장하세요."), prev && /*#__PURE__*/React.createElement(CardPreview, {
+    canvas: prev,
+    say: say,
+    name: `${g.place || "라운드"}_${g.date}`,
+    onClose: () => setPrev(null)
+  }));
 }
 
 /* ══ 기록 보기 ════════════════════════════════
