@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-4 한글 이름 · 기타설정 뺌 -->
+<!-- build: 1판-5 순서 바꾸기 · 설정 돌아가기 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -1126,7 +1126,7 @@ const golfZero = () => ({
 const golfDiff = z => z.holes ? z.sum - z.parSum : null;
 const fmtDiff = d => d === null ? "" : d > 0 ? `+${d}` : d === 0 ? "E" : String(d);
 const GCELL = 34;
-const GNAME = 52;
+const GNAME = 74; /* ★ 이름 + ▲▼ 자리 (전에는 52) */
 
 /* ── 아홉 홀 ── */
 /* ══ 스코어카드 사진 · 이미지로 내보내기 ═══════
@@ -1795,6 +1795,11 @@ function PhotoTrim({
     }
   }, "아래쪽 맞춤")));
 }
+
+/* ★ 이름 칸 오른쪽에 ▲▼ 를 붙였다 (2026-09-04 · 사용자 지시).
+      치는 순서를 바꾸고 싶어지는 순간이 바로 이 화면이라, 세로 화면까지
+      나갔다 오게 하지 않는다. 넣어둔 타수가 그 사람을 따라 움직인다.
+   ⚠ 저장하는 그림(drawCard)은 캔버스에 따로 그리므로 화살표가 안 나온다 */
 function GolfNine({
   title,
   from,
@@ -1802,7 +1807,8 @@ function GolfNine({
   pars,
   cards,
   names,
-  onCell
+  onCell,
+  onMove
 }) {
   const idx = Array.from({
     length: count
@@ -1864,14 +1870,54 @@ function GolfNine({
     style: {
       height: H,
       width: GNAME,
+      display: "flex",
+      alignItems: "center",
+      gap: 3
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      minWidth: 0,
       fontSize: 12,
       fontWeight: 600,
-      lineHeight: `${GCELL}px`,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis"
     }
-  }, n))), /*#__PURE__*/React.createElement("div", {
+  }, n), onMove && names.length > 1 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 2,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onMove(pi, -1),
+    disabled: pi === 0,
+    "aria-label": n + " 위로",
+    style: {
+      width: 16,
+      height: 13,
+      borderRadius: 4,
+      fontSize: 8,
+      lineHeight: 1,
+      border: "1px solid " + (pi === 0 ? "rgba(255,255,255,.14)" : "rgba(232,184,56,.45)"),
+      color: pi === 0 ? "#33475A" : "#E8B838"
+    }
+  }, "▲"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onMove(pi, 1),
+    disabled: pi === names.length - 1,
+    "aria-label": n + " 아래로",
+    style: {
+      width: 16,
+      height: 13,
+      borderRadius: 4,
+      fontSize: 8,
+      lineHeight: 1,
+      border: "1px solid " + (pi === names.length - 1 ? "rgba(255,255,255,.14)" : "rgba(232,184,56,.45)"),
+      color: pi === names.length - 1 ? "#33475A" : "#E8B838"
+    }
+  }, "▼"))))), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       overflowX: "auto",
@@ -4859,6 +4905,74 @@ function RoundSetup({
     }
   }, "스코어 입력은 가로 전체화면으로 열립니다"));
 }
+/* ★ 라운드 중에 설정으로 돌아갈 때 한 번 묻는다 (2026-09-04).
+      선수를 빼면 그 사람 타수도 함께 사라지므로 미리 알린다 */
+function BackAsk({
+  onGo,
+  onBack
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onBack,
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,.78)",
+      zIndex: 99,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "var(--bg)",
+      borderRadius: 14,
+      padding: 18,
+      width: "100%",
+      maxWidth: 360
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15.5,
+      fontWeight: 700,
+      marginBottom: 8
+    }
+  }, "설정으로 돌아갈까요?"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: "var(--chalk)",
+      lineHeight: 1.7,
+      marginBottom: 14
+    }
+  }, "넣어둔 타수는 그대로 있습니다. 이름 · 골프장 · 코스를 고칠 수 있습니다.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: ACCENT
+    }
+  }, "선수를 빼면 그 사람 타수도 함께 지워집니다.")), /*#__PURE__*/React.createElement("button", {
+    onClick: onGo,
+    style: {
+      width: "100%",
+      padding: "13px 0",
+      borderRadius: 10,
+      fontSize: 14.5,
+      fontWeight: 700,
+      background: "#1E88E5",
+      color: "#fff",
+      marginBottom: 7
+    }
+  }, "설정 고치러 가기"), /*#__PURE__*/React.createElement("button", {
+    onClick: onBack,
+    style: {
+      width: "100%",
+      padding: "12px 0",
+      borderRadius: 10,
+      fontSize: 13.5,
+      border: "1px solid #3a464d",
+      color: "var(--chalk)"
+    }
+  }, "돌아가기")));
+}
 function Stroke({
   data,
   save,
@@ -4892,6 +5006,7 @@ function Stroke({
         빈 화면이면 다 날린 줄 안다. 버리려면 홈의 [↺ 불러오기] 옆이 아니라
         기타 설정 아래 [버리고 새 라운드] 를 쓴다 */
   const [resumed, setResumed] = useState(false);
+  const [ask, setAsk] = useState(false); /* 설정으로 돌아갈까요 */
   const liveReady = useRef(false); // 되살리기가 끝나야 담기 시작
   const [award, setAward] = useState(false);
   const [photo, setPhoto] = useState("");
@@ -5047,6 +5162,30 @@ function Stroke({
     setNames(ns.length >= 4 ? ns : [...ns, ...Array(4 - ns.length).fill("")]);
     say("지난 라운드를 불러왔습니다");
   };
+
+  /* ★ 치는 순서 바꾸기 (2026-09-04 · 사용자 지시)
+        스코어카드의 ▲▼ 에서 부른다. 이름만 옮기면 타수가 남의 것이 되므로
+        cards 를 반드시 함께 옮긴다 */
+  const movePlayer = (pi, dir) => {
+    const j = pi + dir;
+    if (j < 0 || j >= names.length) return;
+    const sw = a => {
+      const b = a.slice();
+      [b[pi], b[j]] = [b[j], b[pi]];
+      return b;
+    };
+    setNames(sw(names));
+    setCards(c => sw(c));
+  };
+
+  /* ★ 라운드 중에 설정으로 돌아가기 (2026-09-04 · 사용자 지시)
+        이름을 틀리게 넣었을 때 고칠 자리가 없었다. 타수는 그대로 둔다 */
+  const backToSetup = () => {
+    liveSaveNow();
+    setBig(false);
+    setPhase("setup");
+    setAsk(false);
+  };
   const start = () => {
     if (!who.length) return say("선수 이름을 넣어주세요");
     const found = parsOfPlace(place, courseA, courseB);
@@ -5188,7 +5327,20 @@ function Stroke({
       borderBottom: "1px solid var(--line)",
       flexShrink: 0
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAsk(true),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      flexShrink: 0,
+      border: "1px solid rgba(255,255,255,.22)",
+      borderRadius: 8,
+      padding: "6px 10px",
+      fontSize: 12,
+      color: "#B9CCDA"
+    }
+  }, "← 설정"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 14,
       fontWeight: 700,
@@ -5237,7 +5389,8 @@ function Stroke({
     pars: pars,
     cards: cards,
     names: names,
-    onCell: setPick
+    onCell: setPick,
+    onMove: movePlayer
   }), holes > 9 && /*#__PURE__*/React.createElement(GolfNine, {
     title: "후반 IN" + (courseB ? ` · ${courseB}` : ""),
     from: 9,
@@ -5245,7 +5398,8 @@ function Stroke({
     pars: pars,
     cards: cards,
     names: names,
-    onCell: setPick
+    onCell: setPick,
+    onMove: movePlayer
   }))), /*#__PURE__*/React.createElement(GolfPad, {
     pick: pick,
     pars: pars,
@@ -5254,6 +5408,9 @@ function Stroke({
     setPars: setPars,
     setCards: setCards,
     onClose: () => setPick(null)
+  }), ask && /*#__PURE__*/React.createElement(BackAsk, {
+    onGo: backToSetup,
+    onBack: () => setAsk(false)
   }));
 
   /* ── 세로 화면 ── */
@@ -5264,6 +5421,19 @@ function Stroke({
       gap: 14
     }
   }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAsk(true),
+    style: {
+      alignSelf: "flex-start",
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      border: "1px solid rgba(255,255,255,.22)",
+      borderRadius: 999,
+      padding: "7px 13px",
+      fontSize: 12.5,
+      color: "#B9CCDA"
+    }
+  }, "← 설정 고치기"), /*#__PURE__*/React.createElement("button", {
     className: "prim",
     onClick: () => setBig(true),
     style: {
@@ -5545,7 +5715,10 @@ function Stroke({
     onClick: () => {
       if (confirm("기록하지 않고 나갈까요?")) setPhase("setup");
     }
-  }, "저장하지 않고 나가기"));
+  }, "저장하지 않고 나가기"), ask && /*#__PURE__*/React.createElement(BackAsk, {
+    onGo: backToSetup,
+    onBack: () => setAsk(false)
+  }));
 }
 
 /* ══ 저장된 라운드의 타수 고치기 (8판) ═════════════
