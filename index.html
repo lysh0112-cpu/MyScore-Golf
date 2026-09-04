@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-11 사진 서버 보관 · 지우면 함께 -->
+<!-- build: 1판-12 보내기 체크로 나눔 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -7016,7 +7016,8 @@ function Log({
      전에는 base64 로 경기 객체를 통째로 담아 카톡 말풍선 하나를 먹었다.
      대회 시상에서 다른 조의 성적을 모을 때 이 줄을 붙여넣는다.                */
 
-function buildText(g, money = true, code = true) {
+/* ★ score 를 더했다 (2026-09-04) — "비용만 보내기" 가 되게 하기 위해서다 */
+function buildText(g, money = true, code = true, score = true) {
   const sp = S(g.sport),
     L = [];
   const holes = g.holes || 18;
@@ -7024,13 +7025,15 @@ function buildText(g, money = true, code = true) {
   L.push(`${sp.icon} ${g.date} (${dow(g.date)}) · ${sp.name}`);
   L.push(`📍 ${g.place || "-"}`);
   L.push("━━━━━━━━━━━━━");
-  L.push(`⛳ ${holes}홀 · 파 ${par}${g.courseA || g.courseB ? `  (${[g.courseA, g.courseB].filter(Boolean).join(" · ")})` : ""}`);
-  L.push("");
+  if (score) {
+    L.push(`⛳ ${holes}홀 · 파 ${par}${g.courseA || g.courseB ? `  (${[g.courseA, g.courseB].filter(Boolean).join(" · ")})` : ""}`);
+    L.push("");
+  }
 
   /* 한 홀도 안 친 사람은 순위에서 뒤로 뺀다 */
   const gz = p => Array.isArray(g.pars) && Array.isArray(p.card) ? golfTally(p.card, g.pars) : null;
-  const played = g.players.filter(p => Number(p.score) > 0);
-  const rest = g.players.filter(p => !(Number(p.score) > 0));
+  const played = score ? g.players.filter(p => Number(p.score) > 0) : [];
+  const rest = score ? g.players.filter(p => !(Number(p.score) > 0)) : [];
   [...played].sort((a, b) => a.score - b.score).forEach((p, i) => {
     const z = gz(p);
     const d = z && z.holes ? z.sum - z.parSum : p.score - par;
@@ -7044,7 +7047,7 @@ function buildText(g, money = true, code = true) {
   /* ── 비용 ──
      ★ [성적만 보내기] 면 돈이 한 글자도 안 나간다 (금액 · "원" · 코딩문 속까지) */
   if (money && (g.costs || []).length) {
-    L.push("━━━━━━━━━━━━━");
+    if (score) L.push("━━━━━━━━━━━━━");
     L.push(`💰 총 ${won(g.cost || costsTotal(g.costs))}원`);
     g.costs.forEach(c => L.push(`   ${c.title} ${won(c.amount)}원${c.who ? ` · ${c.who}` : ""}`));
     const paid = g.players.filter(p => Number(p.paid) > 0);
@@ -7074,13 +7077,18 @@ function Sheet({
   save,
   data
 }) {
-  const [mode, setMode] = useState("cost"); // score · cost · all
+  /* ★ 세 갈래에서 체크로 바꿨다 (2026-09-04 · 사용자 지시).
+        전에는 하나만 고를 수 있어 "비용만 보내기" 가 안 됐다.
+      ★ 취합용 한 줄은 따로 보낸다 (사용자 지시).
+       성적표와 같이 붙어 있으면 받는 사람이 어디부터 복사할지 헷갈린다.
+       켜면 성적·비용이 저절로 꺼지고, 글이 한 줄짜리가 된다.                */
+  const [wantScore, setWantScore] = useState(true);
+  const [wantCost, setWantCost] = useState(true);
+  const [onlyCode, setOnlyCode] = useState(false);
   const [tail, setTail] = useState(""); // 맨 아래에 덧붙일 말 (저장 안 함)
 
-  const money = mode !== "score";
-  const withCode = mode === "all";
-  const body = buildText(game, money, false);
-  const text = body + (tail.trim() ? `\n\n${tail.trim()}` : "") + (withCode ? `\n━━━━━━━━━━━━━\n↓ 아래 한 줄을 복사해 [대회 시상] 에 붙여넣으세요\n${enc(game)}` : "");
+  const text = onlyCode ? enc(game) : buildText(game, wantCost, false, wantScore) + (tail.trim() ? `\n\n${tail.trim()}` : "");
+  const empty = !onlyCode && !wantScore && !wantCost;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -7090,6 +7098,7 @@ function Sheet({
     }
   };
   const share = async () => {
+    if (empty) return;
     if (!navigator.share) return copy();
     try {
       await navigator.share({
@@ -7097,16 +7106,64 @@ function Sheet({
       });
     } catch (e) {}
   };
-  const box = {
-    display: "flex",
-    gap: 9,
-    alignItems: "flex-start",
-    padding: "12px 13px",
-    borderRadius: 10,
-    marginBottom: 7,
-    textAlign: "left",
-    width: "100%"
-  };
+
+  /* 체크 한 줄 */
+  const Check = ({
+    on,
+    set,
+    title,
+    sub,
+    dim
+  }) => /*#__PURE__*/React.createElement("button", {
+    onClick: () => set(!on),
+    style: {
+      display: "flex",
+      gap: 10,
+      alignItems: "flex-start",
+      padding: "12px 13px",
+      borderRadius: 10,
+      marginBottom: 7,
+      textAlign: "left",
+      width: "100%",
+      opacity: dim ? .45 : 1,
+      background: on ? "rgba(232,184,56,.12)" : "rgba(0,0,0,.24)",
+      border: "1px solid " + (on ? "rgba(232,184,56,.5)" : "var(--line)")
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 19,
+      height: 19,
+      borderRadius: 5,
+      flexShrink: 0,
+      marginTop: 1,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: 12,
+      fontWeight: 700,
+      background: on ? ACCENT : "transparent",
+      color: "#141200",
+      border: on ? "none" : "1px solid #61798C"
+    }
+  }, on ? "✓" : ""), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 14.5,
+      fontWeight: 600
+    }
+  }, title), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 11.5,
+      color: "var(--chalk)",
+      marginTop: 3,
+      lineHeight: 1.6
+    }
+  }, sub)));
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClose,
     style: {
@@ -7136,37 +7193,43 @@ function Sheet({
       fontWeight: 700,
       marginBottom: 14
     }
-  }, "결과표 보내기"), [["cost", "성적 + 비용 보내기", "함께 친 사람들에게"], ["score", "성적만 보내기", "단톡방 · 가족에게 · 돈 얘기 없이"], ["all", "전부 보내기", "대회 시상에 쓸 한 줄이 함께 갑니다"]].map(([k, t, sub]) => /*#__PURE__*/React.createElement("button", {
-    key: k,
-    onClick: () => setMode(k),
+  }, "결과표 보내기"), /*#__PURE__*/React.createElement(Check, {
+    on: wantScore && !onlyCode,
+    dim: onlyCode,
+    set: v => {
+      setOnlyCode(false);
+      setWantScore(v);
+    },
+    title: "성적 보내기",
+    sub: "홀별 타수 · 버디 · 파 · 보기"
+  }), /*#__PURE__*/React.createElement(Check, {
+    on: wantCost && !onlyCode,
+    dim: onlyCode,
+    set: v => {
+      setOnlyCode(false);
+      setWantCost(v);
+    },
+    title: "비용 보내기",
+    sub: "그린피 · 카트비 · 낸 사람"
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
-      ...box,
-      background: mode === k ? "rgba(232,184,56,.12)" : "rgba(0,0,0,.24)",
-      border: "1px solid " + (mode === k ? "rgba(232,184,56,.5)" : "var(--line)")
+      borderTop: "1px solid rgba(255,255,255,.1)",
+      paddingTop: 14,
+      marginTop: 7
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 15,
-      color: mode === k ? ACCENT : "#61798C"
+      fontSize: 11,
+      color: "#7E9AB0",
+      letterSpacing: ".12em",
+      marginBottom: 8
     }
-  }, mode === k ? "●" : "○"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 1
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: "block",
-      fontSize: 14.5,
-      fontWeight: 600
-    }
-  }, t), /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: "block",
-      fontSize: 11.5,
-      color: "var(--chalk)",
-      marginTop: 3
-    }
-  }, sub)))), /*#__PURE__*/React.createElement("div", {
+  }, "여러 조가 대회를 칠 때"), /*#__PURE__*/React.createElement(Check, {
+    on: onlyCode,
+    set: setOnlyCode,
+    title: "성적 취합용 한 줄만 보내기",
+    sub: "★ 이 한 줄만 갑니다. 받는 사람이 [대회 시상]에 붙여넣으면 이 조 성적이 들어갑니다"
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       background: "rgba(0,0,0,.32)",
       borderRadius: 10,
@@ -7179,7 +7242,7 @@ function Sheet({
       maxHeight: 260,
       overflowY: "auto"
     }
-  }, text), /*#__PURE__*/React.createElement("span", {
+  }, text), !onlyCode && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     className: "lbl"
   }, "맨 아래에 덧붙일 말"), /*#__PURE__*/React.createElement("textarea", {
     value: tail,
@@ -7189,13 +7252,20 @@ function Sheet({
     style: {
       marginBottom: 12
     }
-  }), /*#__PURE__*/React.createElement("button", {
+  })), empty && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "#f0a9a9",
+      marginBottom: 10
+    }
+  }, "보낼 것을 하나는 골라주세요."), /*#__PURE__*/React.createElement("button", {
     className: "prim",
     onClick: share,
+    disabled: empty,
     style: {
       marginBottom: 10
     }
-  }, "카톡으로 보내기"), save && data && /*#__PURE__*/React.createElement(CardMaker, {
+  }, onlyCode ? "총무에게 이 줄만 보내기" : "카톡으로 보내기"), save && data && /*#__PURE__*/React.createElement(CardMaker, {
     game: game,
     save: save,
     data: data,
