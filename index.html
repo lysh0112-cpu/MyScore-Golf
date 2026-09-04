@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-20 미리보기 · 네트 정수 -->
+<!-- build: 1판-21 시상표 사진 16:9 · 조절기 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -1725,11 +1725,16 @@ async function sendCard(canvas, name, say) {
    그림에 들어갈 자리만큼만 보여주고, 끌어서 옮기고 늘려서 맞춘다.
    미리보기와 실제 그림이 같은 셈(photoFit)을 쓰므로 보이는 그대로 나온다.
    ══════════════════════════════════════════ */
+/* ★ 자리 크기를 밖에서 받는다 (2026-09-05).
+      스코어카드는 세로로 긴 자리(520 × 사람 수), 시상표는 가로로 넓은 16:9 자리다.
+      전에는 스코어카드 크기가 박혀 있어 시상표에 못 썼다 */
 function PhotoTrim({
   photo,
   trim,
   setTrim,
-  players
+  players,
+  pw,
+  ph
 }) {
   const box = useRef(null);
   const [size, setSize] = useState({
@@ -1738,8 +1743,9 @@ function PhotoTrim({
   }); // 사진 원래 크기
   const [bw, setBw] = useState(300); // 미리보기 폭
   const drag = useRef(null);
-  const H = cardH(players);
-  const k = bw / CARD_PW; // 그림 좌표 → 미리보기 좌표
+  const PWv = pw || CARD_PW;
+  const H = ph || cardH(players);
+  const k = bw / PWv; // 그림 좌표 → 미리보기 좌표
 
   useEffect(() => {
     const im = new Image();
@@ -1780,7 +1786,7 @@ function PhotoTrim({
       padding: "10px 0"
     }
   }, "사진을 불러오는 중…");
-  const f = photoFit(size.w, size.h, CARD_PW, H, trim);
+  const f = photoFit(size.w, size.h, PWv, H, trim);
   const move = (dx, dy) => setTrim({
     ...trim,
     x: (trim.x || 0) + dx / k,
@@ -1791,7 +1797,7 @@ function PhotoTrim({
         막대를 찾아 끄는 것보다 사진을 직접 만지는 편이 빠르다.
         한 손가락은 옮기기, 두 손가락은 옮기기 + 크기.
         ★ 두 손가락 중 하나를 떼면 남은 손가락으로 이어서 옮길 수 있어야 한다 */
-  const lo = photoMinZ(size.w, size.h, CARD_PW, H); // ★ 사진 전체가 보이는 크기
+  const lo = photoMinZ(size.w, size.h, PWv, H); // ★ 사진 전체가 보이는 크기
   const zoomTo = (z, dx, dy) => setTrim({
     ...trim,
     z: Math.min(3, Math.max(lo, z)),
@@ -1911,7 +1917,7 @@ function PhotoTrim({
             bw 를 못 잰 순간에 상자 모양이 카드와 달라진다 → 비율만 쓴다 */
       position: "relative",
       width: "100%",
-      aspectRatio: `${CARD_PW} / ${H}`,
+      aspectRatio: `${PWv} / ${H}`,
       overflow: "hidden",
       borderRadius: 10,
       background: "#08121C",
@@ -1925,9 +1931,9 @@ function PhotoTrim({
     draggable: false,
     style: {
       position: "absolute",
-      left: `${f.dx / CARD_PW * 100}%`,
+      left: `${f.dx / PWv * 100}%`,
       top: `${f.dy / H * 100}%`,
-      width: `${f.dw / CARD_PW * 100}%`,
+      width: `${f.dw / PWv * 100}%`,
       height: `${f.dh / H * 100}%`,
       pointerEvents: "none"
     }
@@ -3012,8 +3018,13 @@ async function drawAward(o) {
   const G = holeGeom(o);
   const sheet = o.pars && o.pars.length && ranked.length;
   const W = Math.max(1500, sheet ? G.W : 0);
-  const PW = Math.round(W * 0.66); /* 사진 자리 */
-  const headH = Math.max(430, 150 + (awards.length + extra.length) * 46 + 60);
+
+  /* ★ 사진 자리를 16:9 로 잡는다 (2026-09-05 · 사용자 지시).
+        전에는 2.3:1 로 납작해서 4:3 · 16:9 사진의 위아래가 많이 잘렸다.
+        머리 높이를 사진에 맞추므로 시상 내역이 늘어나면 그만큼만 더 커진다 */
+  const PW = Math.round(W * 0.66); /* 사진 자리 가로 */
+  const PH = Math.round(PW * 9 / 16); /* ★ 16:9 */
+  const headH = Math.max(PH, 150 + (awards.length + extra.length) * 46 + 60);
   const tblTop = headH + 34;
   const H = sheet ? tblTop + holeTableH(o) + 60 : headH + 60;
   const c = document.createElement("canvas");
@@ -3034,14 +3045,15 @@ async function drawAward(o) {
         im.src = photo;
       });
       /* 자리를 꽉 채우고 넘치는 쪽을 잘라낸다 (찌그러지지 않게) */
-      const s = Math.max(PW / img.width, headH / img.height);
-      const w = img.width * s,
-        h = img.height * s;
+      /* ★ 사장님이 맞춰둔 자리(trim)를 그대로 쓴다 — 미리보기와 그림이 같아야 한다 */
+      const f = photoFit(img.width, img.height, PW, PH, o.trim);
       x.save();
       x.beginPath();
       x.rect(0, 0, PW, headH);
       x.clip();
-      x.drawImage(img, (PW - w) / 2, (headH - h) / 2, w, h);
+      x.fillStyle = "#13233A";
+      x.fillRect(0, 0, PW, headH);
+      x.drawImage(img, f.dx, f.dy + (headH - PH) / 2, f.dw, f.dh);
       x.restore();
     } catch (e) {
       x.fillStyle = "#13233A";
@@ -3826,6 +3838,11 @@ function GolfAward({
   const [cardOpen, setCardOpen] = useState(false); // ★ 시상표 모달
   const [title, setTitle] = useState(""); // 대회 이름
   const [photo, setPhoto] = useState(""); // 단체사진
+  const [trim, setTrim] = useState({
+    z: 1,
+    x: 0,
+    y: 0
+  }); // ★ 사진 맞춤
   useEffect(() => {
     (async () => {
       try {
@@ -3834,6 +3851,7 @@ function GolfAward({
           const o = JSON.parse(r.value);
           setTitle(o.title || "");
           setPhoto(o.photo || "");
+          if (o.trim) setTrim(o.trim);
         }
       } catch (e) {}
     })();
@@ -3848,12 +3866,13 @@ function GolfAward({
       try {
         Promise.resolve(window.storage.set("golf:award:v1", JSON.stringify({
           title,
-          photo
+          photo,
+          trim
         }))).catch(() => {});
       } catch (e) {}
     }, 600);
     return () => clearTimeout(t);
-  }, [title, photo]);
+  }, [title, photo, trim]);
   const myGames = golfGames(data.games).filter(g => Array.isArray(g.pars) && g.pars.length).slice(0, 8);
 
   /* 그림에 넣을 것들을 모아둔다 */
@@ -3882,6 +3901,7 @@ function GolfAward({
       way,
       title: title.trim(),
       photo,
+      trim,
       pars,
       coursePar,
       // ← 아래쪽 홀별 성적표에 쓴다
@@ -5183,16 +5203,12 @@ function GolfAward({
     style: {
       marginBottom: 8
     }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: photo,
-    alt: "",
-    style: {
-      width: "100%",
-      borderRadius: 10,
-      display: "block",
-      maxHeight: 200,
-      objectFit: "cover"
-    }
+  }, /*#__PURE__*/React.createElement(PhotoTrim, {
+    photo: photo,
+    trim: trim,
+    setTrim: setTrim,
+    pw: 1600,
+    ph: 900
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -5201,8 +5217,15 @@ function GolfAward({
     }
   }, /*#__PURE__*/React.createElement(PhotoPick, {
     label: "바꾸기",
-    onPick: setPhoto,
     say: say,
+    onPick: p2 => {
+      setPhoto(p2);
+      setTrim({
+        z: 1,
+        x: 0,
+        y: 0
+      });
+    },
     style: {
       flex: 1,
       textAlign: "center",
@@ -5213,7 +5236,14 @@ function GolfAward({
       color: "var(--chalk)"
     }
   }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setPhoto(""),
+    onClick: () => {
+      setPhoto("");
+      setTrim({
+        z: 1,
+        x: 0,
+        y: 0
+      });
+    },
     style: {
       flex: 1,
       padding: "11px 0",
@@ -5224,8 +5254,15 @@ function GolfAward({
     }
   }, "사진 빼기"))) : /*#__PURE__*/React.createElement(PhotoPick, {
     label: "📷  사진 고르기",
-    onPick: setPhoto,
     say: say,
+    onPick: p2 => {
+      setPhoto(p2);
+      setTrim({
+        z: 1,
+        x: 0,
+        y: 0
+      });
+    },
     style: {
       display: "block",
       border: "1px dashed rgba(232,184,56,.45)",
@@ -5243,7 +5280,7 @@ function GolfAward({
       lineHeight: 1.6,
       marginBottom: 16
     }
-  }, "시상표 왼쪽에 크게 들어갑니다. 없으면 사진 없이 만듭니다."), /*#__PURE__*/React.createElement("div", {
+  }, "시상표 왼쪽에 16:9 로 크게 들어갑니다. 사진을 끌어 옮기고 막대로 크기를 맞추면 보이는 그대로 그림이 됩니다. 없으면 사진 없이 만듭니다."), /*#__PURE__*/React.createElement("div", {
     style: {
       background: ready ? "rgba(0,0,0,.28)" : "rgba(226,75,74,.12)",
       border: ready ? "none" : "1px solid rgba(226,75,74,.5)",
