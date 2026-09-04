@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-3 서버에서 종목 거르기 -->
+<!-- build: 1판-4 한글 이름 · 기타설정 뺌 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -4503,7 +4503,16 @@ const HoleBox = ({
 
 /* 선수 이름 한 칸.
    ★ 세 글자로 고정한다 — 한 줄에 네 칸이 들어가야 하기 때문이다 (사용자 지시).
-     지난 기록에 나온 이름은 아래에 후보로 띄운다 */
+     지난 기록에 나온 이름은 아래에 후보로 띄운다.
+
+   ★★ 한글이 세 글자째에서 안 끝나던 문제 (2026-09-04 · 사용자 지적)
+      "김성곤" 을 치면 "김성ㄱ" 에서 멈췄다.
+      maxLength={3} 때문이다 — 폰 자판은 한글을 "조합 중" 상태로 넣는데,
+      세 글자가 차면 브라우저가 그 조합을 더 못 잇게 막는다.
+      ㄱ 이 이미 셋째 글자라 ㅗ·ㄴ 을 못 받고 "김성ㄱ" 으로 굳었다.
+
+      → maxLength 를 없애고, 조합이 끝난 뒤에만 세 글자로 자른다.
+      ⚠ 조합 중(onChange)에 자르면 같은 일이 다시 생긴다. 반드시 조합이 끝난 뒤에 자를 것 */
 function NameBox({
   no,
   value,
@@ -4511,6 +4520,7 @@ function NameBox({
   names
 }) {
   const [open, setOpen] = useState(false);
+  const typing = useRef(false); /* 한글을 조합하는 중인가 */
   const hit = value ? [] : names.slice(0, 6);
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4526,11 +4536,21 @@ function NameBox({
     }
   }, no), /*#__PURE__*/React.createElement("input", {
     value: value,
-    maxLength: NAMELEN,
     placeholder: "이름",
     onFocus: () => setOpen(true),
-    onBlur: () => setTimeout(() => setOpen(false), 150),
-    onChange: e => set(cutName(e.target.value)),
+    onBlur: e => {
+      typing.current = false;
+      set(cutName(e.target.value));
+      setTimeout(() => setOpen(false), 150);
+    },
+    onCompositionStart: () => {
+      typing.current = true;
+    },
+    onCompositionEnd: e => {
+      typing.current = false;
+      set(cutName(e.target.value));
+    },
+    onChange: e => set(typing.current ? e.target.value.slice(0, NAMELEN + 1) : cutName(e.target.value)),
     style: {
       background: "rgba(0,0,0,.3)",
       border: "none",
@@ -4586,17 +4606,12 @@ function RoundSetup({
   holes,
   known,
   parsKnown,
-  green,
-  setGreen,
-  outside,
-  setOutside,
   onStart,
   onFillLast,
   hasLast,
   resumed,
   onDrop
 }) {
-  const [more, setMore] = useState(false);
   const park = sport === "parkgolf";
   const card = {
     background: "#0F2A42",
@@ -4607,22 +4622,6 @@ function RoundSetup({
   const filled = names.filter(n => (n || "").trim()).length;
   const setName = (i, v) => setNames(names.map((x, j) => j === i ? v : x));
   const addP = () => names.length < MAXP && setNames([...names, ""]);
-
-  /* 비용 항목 알약 — 쓸 것만 켠다. 금액은 라운드가 끝난 뒤에 넣는다 */
-  const allCost = [...green, ...outside];
-  const toggleCost = title => {
-    const inG = green.some(c => c.title === title);
-    const inO = outside.some(c => c.title === title);
-    if (inG) return setGreen(green.filter(c => c.title !== title));
-    if (inO) return setOutside(outside.filter(c => c.title !== title));
-    return COST_OUT.includes(title) ? setOutside([...outside, {
-      ...costNew(),
-      title
-    }]) : setGreen([...green, {
-      ...costNew(),
-      title
-    }]);
-  };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -4831,75 +4830,7 @@ function RoundSetup({
     style: {
       height: 20
     }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setMore(!more),
-    style: {
-      width: "100%",
-      background: "rgba(255,255,255,.04)",
-      borderRadius: more ? "12px 12px 0 0" : 12,
-      padding: 14,
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      textAlign: "left",
-      marginBottom: more ? 0 : 16
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 15
-    }
-  }, "⚙"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 1,
-      fontSize: 14,
-      fontWeight: 600,
-      color: "#B9CCDA"
-    }
-  }, "기타 설정"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11.5,
-      color: "#7E9AB0"
-    }
-  }, "비용 ", allCost.length, "가지"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 13,
-      color: "#7E9AB0"
-    }
-  }, more ? "▲" : "▼")), more && /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "rgba(0,0,0,.28)",
-      borderRadius: "0 0 12px 12px",
-      padding: "15px 14px",
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement(Lbl, null, "라운드 비용 항목"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6,
-      marginBottom: 7
-    }
-  }, COST_ALL.map(t => {
-    const on = allCost.some(c => c.title === t);
-    return /*#__PURE__*/React.createElement("button", {
-      key: t,
-      onClick: () => toggleCost(t),
-      style: {
-        borderRadius: 999,
-        padding: "7px 12px",
-        fontSize: 12.5,
-        fontWeight: 600,
-        background: on ? ACCENT : "rgba(0,0,0,.32)",
-        color: on ? "#141200" : "#61798C"
-      }
-    }, t);
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "#6F8598",
-      lineHeight: 1.6
-    }
-  }, "금액은 라운드가 끝난 뒤에 넣습니다")), resumed && /*#__PURE__*/React.createElement("button", {
+  }), resumed && /*#__PURE__*/React.createElement("button", {
     onClick: onDrop,
     style: {
       width: "100%",
@@ -5229,10 +5160,6 @@ function Stroke({
     pars: pars,
     holes: holes,
     parsKnown: !!parsOfPlace(place, courseA, courseB),
-    green: green,
-    setGreen: setGreen,
-    outside: outside,
-    setOutside: setOutside,
     onStart: start,
     onFillLast: fillLast,
     hasLast: !!last,
