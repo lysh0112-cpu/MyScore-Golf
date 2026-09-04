@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-21 시상표 사진 16:9 · 조절기 -->
+<!-- build: 1판-22 사진 좌우 이동 · 롱기 니어 거리 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -1267,8 +1267,13 @@ function photoFit(iw, ih, PW, H, trim) {
   const s = base * Math.min(3, Math.max(lo, Number(t.z) || 1));
   const dw = iw * s,
     dh = ih * s;
-  const mx = Math.max(0, (dw - PW) / 2),
-    my = Math.max(0, (dh - H) / 2);
+  /* ★ 사진이 자리보다 작아도 좌우·위아래로 옮길 수 있게 (2026-09-05 · 사용자 지시).
+        전에는 넘치는 쪽만 옮길 수 있어, 16:9 가 아닌 사진은 가로가 늘 딱 맞아
+        좌우로 전혀 안 움직였다 ("넓혀졌다 좁아지기만 하네").
+        이제 줄여서 전체를 보이게 한 뒤 왼쪽·오른쪽으로 밀 수 있다.
+        남는 자리는 바탕색이다 */
+  const mx = Math.abs(dw - PW) / 2,
+    my = Math.abs(dh - H) / 2;
   const x = Math.min(mx, Math.max(-mx, Number(t.x) || 0));
   const y = Math.min(my, Math.max(-my, Number(t.y) || 0));
   return {
@@ -3819,12 +3824,15 @@ function GolfAward({
   const [hidden, setHidden] = useState([]);
   const [editHidden, setEditHidden] = useState(false);
   const [kinds, setKinds] = useState(["win", "second", "third", "birdie"]);
+  /* ★ note = 거리 (2026-09-05 · 사용자 지시). 롱기스트 260m · 니어리스트 1.2m 처럼 */
   const [extra, setExtra] = useState([{
     title: "롱기스트",
-    who: ""
+    who: "",
+    note: ""
   }, {
     title: "니어리스트",
-    who: ""
+    who: "",
+    note: ""
   }]);
   const [busy, setBusy] = useState(false);
   const [help, setHelp] = useState(false); // 시상 방식 설명 모달
@@ -3889,7 +3897,7 @@ function GolfAward({
     const ex = extra.filter(x => (x.title || "").trim()).map(x => ({
       title: x.title,
       who: x.who,
-      note: ""
+      note: (x.note || "").trim()
     }));
     return drawAward({
       place: games[0] ? games[0].place : "",
@@ -4410,7 +4418,14 @@ function GolfAward({
     }
   }, /*#__PURE__*/React.createElement("span", {
     className: "lbl"
-  }, "신고로 받는 상"), extra.map((x, i) => /*#__PURE__*/React.createElement("div", {
+  }, "신고로 받는 상"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6F8598",
+      lineHeight: 1.6,
+      marginBottom: 8
+    }
+  }, "거리를 적으면 시상표에 함께 나옵니다 — 롱기스트 260m · 니어리스트 1.2m"), extra.map((x, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     style: {
       display: "flex",
@@ -4442,6 +4457,20 @@ function GolfAward({
       minWidth: 0,
       padding: "10px 9px"
     }
+  }), /*#__PURE__*/React.createElement("input", {
+    value: x.note || "",
+    placeholder: "거리",
+    onChange: e => setExtra(extra.map((y, k) => k === i ? {
+      ...y,
+      note: e.target.value
+    } : y)),
+    style: {
+      width: 62,
+      flexShrink: 0,
+      padding: "10px 6px",
+      fontSize: 13,
+      textAlign: "center"
+    }
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => setExtra(extra.filter((_, k) => k !== i)),
     style: {
@@ -4456,7 +4485,8 @@ function GolfAward({
   }, "×"))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setExtra([...extra, {
       title: "",
-      who: ""
+      who: "",
+      note: ""
     }]),
     style: {
       width: "100%",
@@ -5280,7 +5310,11 @@ function GolfAward({
       lineHeight: 1.6,
       marginBottom: 16
     }
-  }, "시상표 왼쪽에 16:9 로 크게 들어갑니다. 사진을 끌어 옮기고 막대로 크기를 맞추면 보이는 그대로 그림이 됩니다. 없으면 사진 없이 만듭니다."), /*#__PURE__*/React.createElement("div", {
+  }, "시상표 왼쪽에 16:9 로 크게 들어갑니다. 사진을 끌어 옮기고 막대로 크기를 맞추면 보이는 그대로 그림이 됩니다.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "var(--ivory)"
+    }
+  }, "좌우로 안 움직이면 크기를 줄여보세요."), " ", "자리에 꽉 차 있으면 밀 여백이 없습니다. 없으면 사진 없이 만듭니다."), /*#__PURE__*/React.createElement("div", {
     style: {
       background: ready ? "rgba(0,0,0,.28)" : "rgba(226,75,74,.12)",
       border: ready ? "none" : "1px solid rgba(226,75,74,.5)",
