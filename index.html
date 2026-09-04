@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-13 정산 -->
+<!-- build: 1판-14 정산 인원 4의 배수 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -6397,14 +6397,14 @@ function Settle({
       gap: 6,
       marginBottom: 12
     }
-  }, [people, 8, 12, 16, 20].filter((v, i, a) => v > 0 && a.indexOf(v) === i).slice(0, 5).map(v => /*#__PURE__*/React.createElement("button", {
+  }, [4, 8, 12, 16, 20].map(v => /*#__PURE__*/React.createElement("button", {
     key: v,
     onClick: () => setShare({
       ...share,
       n: String(v)
     }),
     style: small(n === v)
-  }, v === people ? `이 조 ${v}명` : `${v}명`))), /*#__PURE__*/React.createElement("div", {
+  }, v, "명"))), /*#__PURE__*/React.createElement("div", {
     style: {
       borderTop: "1px solid var(--line)",
       paddingTop: 11
