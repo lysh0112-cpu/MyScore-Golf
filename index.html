@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-26 코스 자료 정리 -->
+<!-- build: 1판-27 골프장 고르기 · 관리자 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -651,57 +651,6 @@ function ttsReport() {
   if (!v) return `한국어 목소리가 없습니다 (설치된 목소리 ${VOICES.length}개). 폰 설정에서 한국어 음성을 받아주세요`;
   return `준비됨 · ${v.name}`;
 }
-/* ══ 골프장 코스 · 홀별 파 ═══════════════════
-   (2026-09-05 · 사용자가 준 자료)
-
-   한 줄에 골프장 하나. 코스는 | 로 잇는다.
-     "도,시군,골프장,코스이름:홀별파9개|코스이름:홀별파9개"
-
-   ★ 파는 한 홀에 한 글자다 (3·4·5). 아홉 글자면 9홀 한 코스다.
-   ⚠ 골프장 이름은 사용자가 홈에서 칠 이름과 같아야 한다 (CC · GC 를 붙이지 않는다).
-   ⚠ 자료를 더할 때는 이 줄만 늘리면 된다. 코드는 안 건드려도 된다.
-   ⚠ 파크골프장은 홀 수가 제각각이라 여기 안 넣는다 (나중 과제).
-   ⚠ ★ 9홀이 아닌 코스는 안 넣는다 — 포레스트힐 FOREST 는 6홀이라 뺐다 (2026-09-05).
-     그 골프장의 ROCK · HILL 두 코스는 들어 있다.
-     6홀·12홀 코스를 넣으려면 형식을 바꿔야 한다 (파크골프와 같은 과제).       */
-const COURSE_DB = ["경기,포천,포천힐스,팰리스:534534345|캐슬:543444345|가든:545343444", "경기,가평,썬힐,썬:434534544|힐:443545344|파인:544343445", "경기,포천,푸른솔,마운틴:544435434|밸리:544353444|레이크:544344435", "경기,포천,힐마루,시그니처A:443453454|시그니처B:444534435|브리즈:443445345|선샤인:543453435|네스트:434544534", "경기,포천,포레스트힐,ROCK:535444344|HILL:443445435", "경기,포천,아도니스,WEST:453445344|MIDDLE:443454435|EAST:453445434", "경기,포천,필로스,EAST:453443454|WEST:435434544|SOUTH:445345434", "경기,포천,몽베르,명성산IN:445453434|명성산OUT:445345434|망부봉IN:443545344|망부봉OUT:445343445", "경기,포천,일동레이크,마운틴:453444354|힐:445345443", "경기,가평,리앤리,Lake:444353544|Highland:444354435|Sky:543543435", "경기,가평,베네스트,MAPLE:543443544|PINE:453444345|BIRCH:534434535", "경기,가평,프리스틴,IN:534454434|OUT:543453444", "경기,가평,크리스탈밸리,CRYSTAL:453444534|VALLEY:534443544", "경기,가평,베지뉴,G:444345435|NEW:434434545|HILL:443543445", "경기,가평,청평마이다스,밸리:434454354|마이다스:453454344", "경기,이천,이천마이다스,OLYMPUS:543443544|TITAN:444534435|MIDAS:443543544", "강원,춘천,라비에벨,올드OUT:544354344|올들IN:453445434", "경기,가평,아난티,자작나무:445344345|느티나무:453434544|잣나무:534443454"];
-
-/* 줄을 풀어 쓰기 좋은 모양으로 — 앱을 켤 때 한 번만 돈다 */
-const COURSES = COURSE_DB.map(line => {
-  const f = line.split(",");
-  return {
-    do: f[0],
-    si: f[1],
-    club: f[2],
-    courses: (f[3] || "").split("|").map(c => {
-      const j = c.lastIndexOf(":");
-      return {
-        name: c.slice(0, j),
-        pars: c.slice(j + 1).split("").map(Number)
-      };
-    })
-  };
-});
-
-/* 골프장 이름으로 찾기 — 친 글자가 어디든 들어 있으면 후보로 본다.
-   ★ 띄어쓰기와 대소문자는 무시한다 ("포천 힐스" 도 찾게) */
-const clubFind = q => {
-  const s = (q || "").replace(/\s/g, "").toLowerCase();
-  if (!s) return [];
-  return COURSES.filter(c => c.club.replace(/\s/g, "").toLowerCase().includes(s) || c.si.includes(s) || c.do.includes(s)).slice(0, 8);
-};
-const clubOf = name => {
-  const s = (name || "").replace(/\s/g, "").toLowerCase();
-  return COURSES.find(c => c.club.replace(/\s/g, "").toLowerCase() === s) || null;
-};
-/* 골프장 + 코스 이름 → 홀별 파 아홉 개 */
-const courseOf = (club, name) => {
-  const c = clubOf(club);
-  if (!c) return null;
-  const s = (name || "").replace(/\s/g, "").toLowerCase();
-  const hit = c.courses.find(x => x.name.replace(/\s/g, "").toLowerCase() === s);
-  return hit ? hit.pars : null;
-};
 /* ── 명카페 공용 계정 (Supabase) ── */
 const SB_URL = "https://auvuwytatfcoawdrgunl.supabase.co";
 const SB_KEY = "sb_publishable_9-cLLZC0YETjFq4XpAZCog_X9ofa2FZ";
@@ -1112,6 +1061,104 @@ function syncMsg(e) {
   if (/fetch|network|Failed/i.test(m)) return "인터넷이 끊겼습니다. 나중에 저절로 올라갑니다";
   return m.slice(0, 80) || "올리지 못했습니다";
 }
+/* ══ 골프장 코스 · 홀별 파 ═══════════════════
+   (2026-09-05 · 사용자가 준 자료)
+
+   한 줄에 골프장 하나. 코스는 | 로 잇는다.
+     "도,시군,골프장,코스이름:홀별파9개|코스이름:홀별파9개"
+
+   ★ 파는 한 홀에 한 글자다 (3·4·5). 아홉 글자면 9홀 한 코스다.
+   ⚠ 골프장 이름은 사용자가 홈에서 칠 이름과 같아야 한다 (CC · GC 를 붙이지 않는다).
+   ⚠ 자료를 더할 때는 이 줄만 늘리면 된다. 코드는 안 건드려도 된다.
+   ⚠ 파크골프장은 홀 수가 제각각이라 여기 안 넣는다 (나중 과제).
+   ⚠ ★ 9홀이 아닌 코스는 안 넣는다 — 포레스트힐 FOREST 는 6홀이라 뺐다 (2026-09-05).
+     그 골프장의 ROCK · HILL 두 코스는 들어 있다.
+     6홀·12홀 코스를 넣으려면 형식을 바꿔야 한다 (파크골프와 같은 과제).       */
+const COURSE_DB = ["경기,포천,포천힐스,팰리스:534534345|캐슬:543444345|가든:545343444", "경기,가평,썬힐,썬:434534544|힐:443545344|파인:544343445", "경기,포천,푸른솔,마운틴:544435434|밸리:544353444|레이크:544344435", "경기,포천,힐마루,시그니처A:443453454|시그니처B:444534435|브리즈:443445345|선샤인:543453435|네스트:434544534", "경기,포천,포레스트힐,ROCK:535444344|HILL:443445435", "경기,포천,아도니스,WEST:453445344|MIDDLE:443454435|EAST:453445434", "경기,포천,필로스,EAST:453443454|WEST:435434544|SOUTH:445345434", "경기,포천,몽베르,명성산IN:445453434|명성산OUT:445345434|망부봉IN:443545344|망부봉OUT:445343445", "경기,포천,일동레이크,마운틴:453444354|힐:445345443", "경기,가평,리앤리,Lake:444353544|Highland:444354435|Sky:543543435", "경기,가평,베네스트,MAPLE:543443544|PINE:453444345|BIRCH:534434535", "경기,가평,프리스틴,IN:534454434|OUT:543453444", "경기,가평,크리스탈밸리,CRYSTAL:453444534|VALLEY:534443544", "경기,가평,베지뉴,G:444345435|NEW:434434545|HILL:443543445", "경기,가평,청평마이다스,밸리:434454354|마이다스:453454344", "경기,이천,이천마이다스,OLYMPUS:543443544|TITAN:444534435|MIDAS:443543544", "강원,춘천,라비에벨,올드OUT:544354344|올들IN:453445434", "경기,가평,아난티,자작나무:445344345|느티나무:453434544|잣나무:534443454"];
+
+/* 줄을 풀어 쓰기 좋은 모양으로 — 앱을 켤 때 한 번만 돈다 */
+const COURSE_BUILTIN = COURSE_DB.map(line => {
+  const f = line.split(",");
+  return {
+    do: f[0],
+    si: f[1],
+    club: f[2],
+    courses: (f[3] || "").split("|").map(c => {
+      const j = c.lastIndexOf(":");
+      return {
+        name: c.slice(0, j),
+        pars: c.slice(j + 1).split("").map(Number)
+      };
+    })
+  };
+});
+
+/* ★ 서버(glf_course)에서 받아오면 이것으로 갈아끼운다 (2026-09-05).
+      ⚠ 못 받으면 앱에 든 목록으로 돈다 — 골프장은 산속이라 신호가 약한 데가 있다.
+      ⚠ 받은 것은 기기에 담아 다음에 켤 때 바로 쓴다 (인터넷을 기다리지 않게) */
+let COURSES = COURSE_BUILTIN;
+const COURSE_KEY = "golf:courses:v1";
+const courseSet = rows => {
+  if (!Array.isArray(rows) || !rows.length) return false;
+  COURSES = rows.map(r => ({
+    do: r.do_nm || "",
+    si: r.si_nm || "",
+    club: r.club,
+    courses: (r.courses || []).map(c => ({
+      name: c.name,
+      pars: c.pars
+    }))
+  }));
+  return true;
+};
+async function courseLoad() {
+  /* ① 기기에 담아둔 것부터 — 곧바로 쓴다 */
+  try {
+    const r = await window.storage.get(COURSE_KEY);
+    if (r?.value) courseSet(JSON.parse(r.value));
+  } catch (e) {}
+  /* ② 서버에서 새로 받는다. 안 되면 그냥 넘어간다 */
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/glf_course?select=do_nm,si_nm,club,courses&order=do_nm,si_nm,club`, {
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`
+      }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (courseSet(rows)) {
+      try {
+        await window.storage.set(COURSE_KEY, JSON.stringify(rows));
+      } catch (e) {}
+    }
+  } catch (e) {}
+}
+
+/* 시·도 → 지역 → 골프장 순으로 좁힌다 (사용자가 준 엑셀 순서 그대로) */
+const doList = () => [...new Set(COURSES.map(c => c.do))].filter(Boolean).sort();
+const siList = dn => [...new Set(COURSES.filter(c => !dn || c.do === dn).map(c => c.si))].filter(Boolean).sort();
+const clubList = (dn, sn) => COURSES.filter(c => (!dn || c.do === dn) && (!sn || c.si === sn)).sort((a, b) => a.club.localeCompare(b.club, "ko"));
+
+/* 골프장 이름으로 찾기 — 친 글자가 어디든 들어 있으면 후보로 본다.
+   ★ 띄어쓰기와 대소문자는 무시한다 ("포천 힐스" 도 찾게) */
+const clubFind = q => {
+  const s = (q || "").replace(/\s/g, "").toLowerCase();
+  if (!s) return [];
+  return COURSES.filter(c => c.club.replace(/\s/g, "").toLowerCase().includes(s) || c.si.includes(s) || c.do.includes(s)).slice(0, 8);
+};
+const clubOf = name => {
+  const s = (name || "").replace(/\s/g, "").toLowerCase();
+  return COURSES.find(c => c.club.replace(/\s/g, "").toLowerCase() === s) || null;
+};
+/* 골프장 + 코스 이름 → 홀별 파 아홉 개 */
+const courseOf = (club, name) => {
+  const c = clubOf(club);
+  if (!c) return null;
+  const s = (name || "").replace(/\s/g, "").toLowerCase();
+  const hit = c.courses.find(x => x.name.replace(/\s/g, "").toLowerCase() === s);
+  return hit ? hit.pars : null;
+};
 /* ══ 골프 · 파크골프 ═══════════════════════ */
 /* ══ 골프 스코어카드 ═══════════════════════════
    스코어 입력만 전체화면 가로, 나머지는 세로.
@@ -5809,6 +5856,9 @@ function RoundSetup({
   onDrop,
   setPars
 }) {
+  const [pickDo, setPickDo] = useState(""); /* 시 · 도 */
+  const [pickSi, setPickSi] = useState(""); /* 지역 */
+  const [byHand, setByHand] = useState(false); /* 목록에 없어 직접 치는 중 */
   const park = sport === "parkgolf";
   const card = {
     background: "#0F2A42",
@@ -5819,36 +5869,22 @@ function RoundSetup({
   const filled = names.filter(n => (n || "").trim()).length;
   const setName = (i, v) => setNames(names.map((x, j) => j === i ? v : x));
 
-  /* ── 골프장 · 코스 후보 ── */
-  const clubHits = park ? [] : clubFind(place).map(c => ({
-    key: c.club,
-    label: c.club,
-    sub: `${c.do} ${c.si} · ${c.courses.length}코스`,
-    club: c
-  }));
+  /* ── 골프장 고르기 — 시·도 → 지역 → 골프장 (2026-09-05 · 사용자 지시) ──
+        엑셀에 넣은 순서 그대로 좁혀간다. 이름을 정확히 몰라도 지역만 알면 찾는다.
+        ★ 앞을 안 골라도 된다 — 비워두면 전부 나온다 */
   const here = park ? null : clubOf(place);
-  const courseHits = front9 => here ? here.courses.map(c => ({
-    key: c.name,
-    label: c.name,
-    sub: `파 ${c.pars.reduce((t, v) => t + v, 0)}`,
-    pars: c.pars,
-    front9
-  })) : [];
+  const clubs = park ? [] : clubList(pickDo, pickSi);
   /* 고른 코스의 파를 앞아홉·뒤아홉 자리에 끼워 넣는다 */
-  const putPars = h => {
-    if (!setPars) return;
+  const putPars = (name, front9) => {
+    const ps = courseOf(place, name);
+    if (!ps || !setPars) return;
     setPars(old => {
       const next = (old && old.length >= 18 ? old.slice(0, 18) : parsFor(18, sport)).slice();
-      h.pars.forEach((v, i) => {
-        next[(h.front9 ? 0 : 9) + i] = v;
+      ps.forEach((v, i) => {
+        next[(front9 ? 0 : 9) + i] = v;
       });
       return next;
     });
-  };
-  const parNote = (name, front9) => {
-    const ps = courseOf(place, name);
-    if (!ps) return "";
-    return `파 ${ps.join(" ")}`;
   };
   const addP = () => names.length < MAXP && setNames([...names, ""]);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -5934,11 +5970,11 @@ function RoundSetup({
     style: {
       display: "flex",
       gap: 10,
-      marginBottom: 18
+      marginBottom: 16
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      flex: 1.15,
+      flex: 1,
       minWidth: 0
     }
   }, /*#__PURE__*/React.createElement(Lbl, null, "날짜"), /*#__PURE__*/React.createElement("input", {
@@ -5952,25 +5988,127 @@ function RoundSetup({
       fontSize: 13.5,
       padding: "11px 8px"
     }
-  })), /*#__PURE__*/React.createElement("div", {
+  })), park && /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       minWidth: 0
     }
-  }, /*#__PURE__*/React.createElement(Lbl, null, park ? "파크골프장" : "골프장"), /*#__PURE__*/React.createElement(Suggest, {
+  }, /*#__PURE__*/React.createElement(Lbl, null, "파크골프장"), /*#__PURE__*/React.createElement("input", {
     value: place,
-    set: setPlace,
+    onChange: e => setPlace(e.target.value),
     placeholder: "이름을 넣으세요",
-    items: clubHits,
-    onPick: h => {
-      setPlace(h.club.club);
-      setCourseA("");
-      setCourseB("");
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9
     }
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), !park && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 12,
+      gap: 7,
+      marginBottom: 9
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement(Lbl, null, "시 · 도"), /*#__PURE__*/React.createElement("select", {
+    value: pickDo,
+    onChange: e => {
+      setPickDo(e.target.value);
+      setPickSi("");
+    },
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9,
+      fontSize: 14
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "전체"), doList().map(d => /*#__PURE__*/React.createElement("option", {
+    key: d,
+    value: d
+  }, d)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement(Lbl, null, "지역"), /*#__PURE__*/React.createElement("select", {
+    value: pickSi,
+    onChange: e => setPickSi(e.target.value),
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9,
+      fontSize: 14
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "전체"), siList(pickDo).map(v => /*#__PURE__*/React.createElement("option", {
+    key: v,
+    value: v
+  }, v))))), /*#__PURE__*/React.createElement(Lbl, null, "골프장"), byHand ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("input", {
+    value: place,
+    onChange: e => setPlace(e.target.value),
+    placeholder: "골프장 이름을 넣으세요",
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9,
+      marginBottom: 7
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setByHand(false);
+      setPlace("");
+    },
+    style: {
+      fontSize: 11.5,
+      color: ACCENT,
+      padding: "2px 0",
+      marginBottom: 12
+    }
+  }, "← 목록에서 고르기")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
+    value: place,
+    onChange: e => {
+      setPlace(e.target.value);
+      setCourseA("");
+      setCourseB("");
+    },
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9,
+      fontSize: 15,
+      marginBottom: 7
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "고르세요"), clubs.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.club,
+    value: c.club
+  }, c.club, " · ", c.courses.length, "코스"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setByHand(true);
+      setPlace("");
+      setCourseA("");
+      setCourseB("");
+    },
+    style: {
+      width: "100%",
+      border: "1px dashed rgba(159,187,208,.35)",
+      borderRadius: 9,
+      padding: "10px 0",
+      fontSize: 12.5,
+      color: "#7E9AB0",
+      marginBottom: 12
+    }
+  }, "목록에 없으면 직접 넣기"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -5978,31 +6116,63 @@ function RoundSetup({
       flex: 1,
       minWidth: 0
     }
-  }, /*#__PURE__*/React.createElement(Lbl, null, back > 0 ? "전반 코스" : "코스"), /*#__PURE__*/React.createElement(Suggest, {
+  }, /*#__PURE__*/React.createElement(Lbl, null, back > 0 ? "전반 코스" : "코스"), here ? /*#__PURE__*/React.createElement("select", {
     value: courseA,
-    set: setCourseA,
-    placeholder: park ? "A 코스" : "동 · 레이크",
-    items: courseHits(true),
-    onPick: h => {
-      setCourseA(h.label);
-      putPars(h);
+    onChange: e => {
+      setCourseA(e.target.value);
+      putPars(e.target.value, true);
     },
-    note: parNote(courseA, true)
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9,
+      fontSize: 15
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "고르세요"), here.courses.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.name,
+    value: c.name
+  }, c.name, " · 파 ", c.pars.reduce((t, v) => t + v, 0)))) : /*#__PURE__*/React.createElement("input", {
+    value: courseA,
+    onChange: e => setCourseA(e.target.value),
+    placeholder: park ? "A 코스" : "동 · 레이크",
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9
+    }
   })), back > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       minWidth: 0
     }
-  }, /*#__PURE__*/React.createElement(Lbl, null, "후반 코스"), /*#__PURE__*/React.createElement(Suggest, {
+  }, /*#__PURE__*/React.createElement(Lbl, null, "후반 코스"), here ? /*#__PURE__*/React.createElement("select", {
     value: courseB,
-    set: setCourseB,
-    placeholder: park ? "B 코스" : "서 · 마운틴",
-    items: courseHits(false),
-    onPick: h => {
-      setCourseB(h.label);
-      putPars(h);
+    onChange: e => {
+      setCourseB(e.target.value);
+      putPars(e.target.value, false);
     },
-    note: parNote(courseB, false)
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9,
+      fontSize: 15
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "고르세요"), here.courses.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.name,
+    value: c.name
+  }, c.name, " · 파 ", c.pars.reduce((t, v) => t + v, 0)))) : /*#__PURE__*/React.createElement("input", {
+    value: courseB,
+    onChange: e => setCourseB(e.target.value),
+    placeholder: park ? "B 코스" : "서 · 마운틴",
+    style: {
+      background: "rgba(0,0,0,.35)",
+      border: "none",
+      borderRadius: 9
+    }
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
@@ -6013,7 +6183,7 @@ function RoundSetup({
     style: {
       color: ACCENT
     }
-  }, " 등록된 골프장입니다. 코스를 고르면 파가 채워집니다.") : parsKnown ? /*#__PURE__*/React.createElement("span", {
+  }, " 파 배치를 불러왔습니다.") : parsKnown ? /*#__PURE__*/React.createElement("span", {
     style: {
       color: ACCENT
     }
@@ -8856,6 +9026,11 @@ function App() {
           return;
         }
       } catch (e) {}
+      /* ★ 골프장 목록을 받아온다 (2026-09-05).
+            담아둔 것으로 먼저 돌고, 서버에서 새것을 받으면 갈아끼운다.
+            못 받아도 앱에 든 18곳으로 돈다 — 골프장은 산속이라 신호가 약하다 */
+      courseLoad().catch(() => {});
+
       /* ★ 처음 켤 때 My Score 자료에서 골프·파크골프만 가져온다 (같은 폰에서 쓰던 경우) */
       try {
         const o = await window.storage.get(HUB);

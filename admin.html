@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>골프온 관리자 · 골프장 코스</title>
+<!-- build: 관리자 1판-1 -->
+<style>
+  :root{ --bg:#0A2438; --card:#0F2A42; --line:rgba(244,238,223,.13);
+         --ivory:#F4EEDF; --chalk:#9FBBD0; --accent:#E8B838; --green:#4FB286; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; background:var(--bg); color:var(--ivory); font-size:14px; line-height:1.55;
+        font-family:'IBM Plex Sans KR',-apple-system,'Malgun Gothic',sans-serif; }
+  .wrap{ max-width:820px; margin:0 auto; padding:0 16px 60px; }
+  header{ background:#0B1826; border-bottom:1px solid rgba(232,184,56,.28); padding:13px 0; margin-bottom:18px; }
+  header .in{ max-width:820px; margin:0 auto; padding:0 16px; display:flex; align-items:center; gap:12px; }
+  h1{ font-size:15px; font-weight:600; color:var(--accent); margin:0; }
+  .card{ background:var(--card); border-radius:12px; padding:15px; margin-bottom:14px; }
+  .lbl{ font-size:11px; color:#7E9AB0; letter-spacing:.12em; display:block; margin-bottom:7px; }
+  input, textarea{ width:100%; background:rgba(0,0,0,.35); border:1px solid var(--line);
+        border-radius:9px; padding:11px 12px; color:var(--ivory); font-size:14px; font-family:inherit; }
+  textarea{ min-height:150px; resize:vertical; line-height:1.9; font-size:13px; }
+  button{ font-family:inherit; cursor:pointer; border:none; border-radius:10px; font-weight:600; }
+  .prim{ background:var(--accent); color:#141200; padding:14px 0; font-size:14.5px; width:100%; }
+  .ghost{ background:transparent; border:1px solid var(--line); color:var(--chalk); padding:13px 0; font-size:13.5px; width:100%; }
+  .row{ display:flex; gap:8px; }
+  .note{ font-size:11.5px; color:#6F8598; line-height:1.8; }
+  .ok{ background:rgba(232,184,56,.1); border:1px solid rgba(232,184,56,.4); border-radius:10px; padding:13px 15px; margin-bottom:14px; }
+  .bad{ background:rgba(226,75,74,.12); border:1px solid rgba(226,75,74,.5); border-radius:10px; padding:13px 15px; margin-bottom:14px; color:#f0a9a9; }
+  .item{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.06); }
+  .item:last-child{ border-bottom:none; }
+  .del{ background:transparent; border:1px solid rgba(158,87,87,.6); color:#f0a9a9; padding:5px 11px; font-size:11.5px; border-radius:7px; }
+  .toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#123049;
+        border:1px solid var(--line); border-radius:10px; padding:12px 18px; font-size:13.5px; z-index:99; }
+</style>
+</head>
+<body>
+<header><div class="in">
+  <h1>GOLF ON 관리자</h1>
+  <span class="note" id="who" style="flex:1"></span>
+  <button class="ghost" style="width:auto;padding:6px 12px" id="out" hidden>로그아웃</button>
+</div></header>
+
+<div class="wrap">
+
+  <!-- ── 로그인 ── -->
+  <div class="card" id="login">
+    <span class="lbl">관리자 로그인</span>
+    <input id="em" type="email" placeholder="이메일" autocomplete="username" style="margin-bottom:8px" />
+    <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password" style="margin-bottom:12px" />
+    <button class="prim" id="go">로그인</button>
+    <div class="note" style="margin-top:9px">
+      ★ 로그인해도 관리자 명단(bil_admin)에 없으면 아무것도 안 내려옵니다.
+    </div>
+  </div>
+
+  <!-- ── 붙여넣기 ── -->
+  <div id="main" hidden>
+    <div class="card">
+      <div style="font-size:14.5px;font-weight:600;margin-bottom:6px">엑셀에서 복사해 붙여넣기</div>
+      <div class="note" style="margin-bottom:11px">
+        엑셀에서 여러 줄을 긁어 그대로 붙여넣으세요. 쉼표(CSV)도 되고 엑셀 탭도 됩니다.<br />
+        <span style="color:#7E9AB0">지역 · 시군 · 골프장 · 코스 · 파1 … 파9</span> 순서입니다. 제목 줄은 있어도 됩니다.
+      </div>
+      <textarea id="raw" placeholder="경기	포천	포천힐스	팰리스	5	3	4	5	3	4	3	4	5"></textarea>
+    </div>
+
+    <div id="report"></div>
+
+    <div class="row" style="margin-bottom:22px">
+      <button class="prim" id="save" style="flex:1.4" disabled>등록하기</button>
+      <button class="ghost" id="clr" style="flex:1">지우고 다시</button>
+    </div>
+
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:14.5px;font-weight:600">등록된 골프장</span>
+      <span class="note" id="cnt"></span>
+    </div>
+    <div class="card" style="padding:0" id="list"></div>
+    <div class="note" style="margin-top:12px">
+      등록하면 회원들이 앱을 열 때 저절로 받아갑니다 · 인터넷이 없으면 앱에 든 목록으로 돕니다
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL = "https://auvuwytatfcoawdrgunl.supabase.co";
+const SB_KEY = "sb_publishable_9-cLLZC0YETjFq4XpAZCog_X9ofa2FZ";
+let TOKEN = "";
+
+const $ = (id) => document.getElementById(id);
+function say(t) {
+  const d = document.createElement("div");
+  d.className = "toast"; d.textContent = t;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 2600);
+}
+async function sb(path, opt = {}) {
+  const r = await fetch(SB_URL + path, {
+    method: opt.method || "GET",
+    headers: {
+      apikey: SB_KEY,
+      Authorization: "Bearer " + (TOKEN || SB_KEY),
+      "Content-Type": "application/json",
+      ...(opt.prefer ? { Prefer: opt.prefer } : {}),
+    },
+    body: opt.body ? JSON.stringify(opt.body) : undefined,
+  });
+  const t = await r.text();
+  if (!r.ok) throw new Error(t.slice(0, 200));
+  return t ? JSON.parse(t) : null;
+}
+
+/* ── 로그인 ── */
+$("go").onclick = async () => {
+  try {
+    const j = await sb("/auth/v1/token?grant_type=password", {
+      method: "POST", body: { email: $("em").value.trim(), password: $("pw").value },
+    });
+    TOKEN = j.access_token;
+    $("who").textContent = j.user?.email || "";
+    $("login").hidden = true; $("main").hidden = false; $("out").hidden = false;
+    load();
+  } catch (e) { say("로그인하지 못했습니다"); }
+};
+$("out").onclick = () => location.reload();
+
+/* ══ 붙여넣은 글 읽기 ═══════════════════════
+   ★ 엑셀에서 긁으면 탭으로 나뉘고, CSV 로 저장하면 쉼표로 나뉜다. 둘 다 받는다.
+   ★ 파는 아홉 개여야 한다. 아니면 그 줄만 빼고 왜인지 알려준다
+     (전에 6홀 코스가 말없이 빠져 헷갈렸다)                            */
+function parse(text) {
+  const lines = text.replace(/\r/g, "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const clubs = new Map(); const bad = [];
+  lines.forEach((line, i) => {
+    const f = line.split(line.includes("\t") ? "\t" : ",").map((s) => s.trim());
+    if (f.length < 13) {
+      if (i === 0 && !/^\d+$/.test(f[4] || "")) return;      // 제목 줄은 조용히 넘긴다
+      bad.push(`${i + 1}째 줄 · 칸이 ${f.length}개입니다 (13개여야 합니다)`); return;
+    }
+    const pars = f.slice(4, 13);
+    if (pars.length !== 9 || !pars.every((p) => /^[3-6]$/.test(p))) {
+      bad.push(`${i + 1}째 줄 · ${f[2]} ${f[3]} — 파가 ${pars.filter(Boolean).length}개입니다 (9개여야 합니다)`);
+      return;
+    }
+    const club = f[2];
+    if (!club) { bad.push(`${i + 1}째 줄 · 골프장 이름이 비었습니다`); return; }
+    const c = clubs.get(club) || { do_nm: f[0], si_nm: f[1], club, courses: [] };
+    if (c.courses.some((x) => x.name === f[3])) {
+      bad.push(`${i + 1}째 줄 · ${club} ${f[3]} — 같은 코스가 두 번 나옵니다 (앞의 것을 씁니다)`);
+    } else c.courses.push({ name: f[3], pars: pars.map(Number) });
+    clubs.set(club, c);
+  });
+  return { rows: [...clubs.values()], bad, n: lines.length };
+}
+
+let READY = [];
+$("raw").oninput = () => {
+  const t = $("raw").value.trim();
+  if (!t) { $("report").innerHTML = ""; $("save").disabled = true; READY = []; return; }
+  const { rows, bad } = parse(t);
+  READY = rows;
+  const have = new Set(LIST.map((x) => x.club));
+  let h = "";
+  if (rows.length) {
+    const nC = rows.reduce((a, b) => a + b.courses.length, 0);
+    h += `<div class="ok"><div style="font-size:13.5px;font-weight:600;margin-bottom:7px">`
+      + `읽은 결과 — 골프장 ${rows.length}곳 · 코스 ${nC}개</div>`
+      + `<div style="font-size:11.5px;color:#B9CCDA;line-height:1.9">`
+      + rows.map((r) => `${r.do_nm} ${r.si_nm} · <b style="color:#F4EEDF">${r.club}</b> — `
+        + r.courses.map((c) => `${c.name}(파 ${c.pars.reduce((a, b) => a + b, 0)})`).join(" · ")
+        + (have.has(r.club) ? ` <span style="color:#E8B838">기존 자료를 덮어씀</span>`
+                            : ` <span style="color:#4FB286">새로 추가</span>`)).join("<br />")
+      + `</div></div>`;
+  }
+  if (bad.length) {
+    h += `<div class="bad"><div style="font-size:13px;font-weight:600;margin-bottom:6px">`
+      + `넣지 못한 줄 ${bad.length}개</div>`
+      + `<div style="font-size:11.5px;line-height:1.8">${bad.join("<br />")}</div></div>`;
+  }
+  $("report").innerHTML = h;
+  $("save").disabled = rows.length === 0;
+  $("save").textContent = rows.length ? `${rows.length}곳 등록하기` : "등록하기";
+};
+$("clr").onclick = () => { $("raw").value = ""; $("raw").oninput(); };
+
+/* ── 등록 ── */
+$("save").onclick = async () => {
+  if (!READY.length) return;
+  $("save").disabled = true; $("save").textContent = "올리는 중…";
+  try {
+    /* ★ 같은 골프장을 다시 넣으면 덮어쓴다 (club 이 열쇠) */
+    await sb("/rest/v1/glf_course?on_conflict=club", {
+      method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+      body: READY.map((r) => ({ ...r, up_at: new Date().toISOString() })),
+    });
+    say(`${READY.length}곳을 등록했습니다`);
+    $("raw").value = ""; $("report").innerHTML = ""; READY = [];
+    load();
+  } catch (e) {
+    say("등록하지 못했습니다 — 관리자가 맞는지 확인하세요");
+    $("save").disabled = false;
+  }
+  $("save").textContent = "등록하기";
+};
+
+/* ── 목록 ── */
+let LIST = [];
+async function load() {
+  try {
+    LIST = await sb("/rest/v1/glf_course?select=id,do_nm,si_nm,club,courses&order=do_nm,si_nm,club");
+  } catch (e) { LIST = []; say("목록을 못 받았습니다"); }
+  const nC = LIST.reduce((a, b) => a + (b.courses || []).length, 0);
+  $("cnt").textContent = `${LIST.length}곳 · ${nC}코스`;
+  $("list").innerHTML = LIST.length ? LIST.map((r) => `
+    <div class="item">
+      <span style="width:80px;font-size:11.5px;color:#7E9AB0">${r.do_nm} ${r.si_nm}</span>
+      <span style="width:96px;font-size:13.5px;font-weight:600">${r.club}</span>
+      <span style="flex:1;font-size:12px;color:#9FBBD0">${(r.courses || [])
+        .map((c) => `${c.name} ${c.pars.reduce((a, b) => a + b, 0)}`).join(" · ")}</span>
+      <button class="del" data-id="${r.id}" data-club="${r.club}">삭제</button>
+    </div>`).join("")
+    : `<div style="padding:26px;text-align:center;color:var(--chalk);font-size:13px">아직 등록된 골프장이 없습니다</div>`;
+  $("list").querySelectorAll(".del").forEach((b) => {
+    b.onclick = async () => {
+      if (!confirm(`${b.dataset.club} 을(를) 지울까요?`)) return;
+      try { await sb(`/rest/v1/glf_course?id=eq.${b.dataset.id}`, { method: "DELETE" }); load(); say("지웠습니다"); }
+      catch (e) { say("지우지 못했습니다"); }
+    };
+  });
+}
+</script>
+</body>
+</html>
