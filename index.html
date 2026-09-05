@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-27 골프장 고르기 · 관리자 -->
+<!-- build: 1판-28 고르는 칸 글자색 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -103,11 +103,27 @@ const CSS = `
 .sq.tv .zoomable { zoom:1.45; }
 .sq .num { font-family:'Oswald',sans-serif; font-weight:500; font-variant-numeric:tabular-nums; }
 .sq button { font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
-.sq input, .sq textarea {
+.sq input, .sq textarea, .sq select {
   width:100%; background:rgba(0,0,0,.28); border:1px solid var(--line);
   border-radius:8px; padding:11px 12px; color:var(--ivory); font-size:15px; font-family:inherit;
 }
 .sq input::placeholder, .sq textarea::placeholder { color:rgba(159,187,208,.5); }
+/* ★ 고르는 칸(select) — 2026-09-05 · 사용자 지적
+      "고른 시도가 그 자리에 안 나온다"
+      위 규칙에 select 가 빠져 있어 글자색이 기본값(검정)으로 잡혔다.
+      어두운 바탕에 검은 글씨라 고른 값이 안 보였다.
+   ⚠ 안드로이드 크롬은 -webkit-appearance 를 안 끄면 제 모양대로 그린다.
+   ⚠ 펼친 목록(option)은 창이 그리는 것이라 색을 따로 줘야 한다 */
+.sq select {
+  -webkit-appearance:none; -moz-appearance:none; appearance:none;
+  padding-right:30px;
+  background-image:linear-gradient(45deg,transparent 50%,rgba(159,187,208,.9) 50%),
+                   linear-gradient(135deg,rgba(159,187,208,.9) 50%,transparent 50%);
+  background-position:calc(100% - 16px) calc(50% + 1px), calc(100% - 11px) calc(50% + 1px);
+  background-size:5px 5px, 5px 5px;
+  background-repeat:no-repeat;
+}
+.sq select option { background:#0F2A42; color:var(--ivory); }
 /* ★ 8판 — type="range" 를 쓰던 곳이 없어졌다 (사진 크기는 손으로 벌려 맞춘다).
       다만 위 .sq input 규칙이 range 에도 걸려 빈 입력칸처럼 보이는 문제가 있었으므로,
       나중에 막대를 쓸 일이 생기면 이 규칙을 되살릴 것. 지금은 쓰는 곳이 없어 뺀다 */
@@ -6020,7 +6036,7 @@ function RoundSetup({
       setPickSi("");
     },
     style: {
-      background: "rgba(0,0,0,.35)",
+      backgroundColor: "rgba(0,0,0,.35)",
       border: "none",
       borderRadius: 9,
       fontSize: 14
@@ -6039,7 +6055,7 @@ function RoundSetup({
     value: pickSi,
     onChange: e => setPickSi(e.target.value),
     style: {
-      background: "rgba(0,0,0,.35)",
+      backgroundColor: "rgba(0,0,0,.35)",
       border: "none",
       borderRadius: 9,
       fontSize: 14
@@ -6078,7 +6094,7 @@ function RoundSetup({
       setCourseB("");
     },
     style: {
-      background: "rgba(0,0,0,.35)",
+      backgroundColor: "rgba(0,0,0,.35)",
       border: "none",
       borderRadius: 9,
       fontSize: 15,
@@ -6123,7 +6139,7 @@ function RoundSetup({
       putPars(e.target.value, true);
     },
     style: {
-      background: "rgba(0,0,0,.35)",
+      backgroundColor: "rgba(0,0,0,.35)",
       border: "none",
       borderRadius: 9,
       fontSize: 15
@@ -6154,7 +6170,7 @@ function RoundSetup({
       putPars(e.target.value, false);
     },
     style: {
-      background: "rgba(0,0,0,.35)",
+      backgroundColor: "rgba(0,0,0,.35)",
       border: "none",
       borderRadius: 9,
       fontSize: 15
