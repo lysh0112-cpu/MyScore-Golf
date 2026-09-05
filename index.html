@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-28 고르는 칸 글자색 -->
+<!-- build: 1판-29 부를 이름 차례 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -714,6 +714,24 @@ const sbProfile = async (token, uid) => {
   });
   return Array.isArray(rows) && rows.length ? rows[0] : null;
 };
+
+/* ══ 부를 이름 정하기 ═══════════════════════
+   ★ 큐보드 · 골프온 · 명카페가 «같은 차례» 를 써야 한다 (2026-09-05 · 명카페 창 지시).
+     안 그러면 같은 사람이 당구에서는 "류승현", 골프에서는 "회원" 으로 보인다.
+
+     nickname → hangul_name → 메타nickname → 이메일앞 → "회원"
+
+   ⚠ ★ 카카오가 붙으면 email 이 빈다 (회원번호만 받기로 정했다).
+     그래서 email 을 마지막에서 두 번째로 미루고 "회원" 을 바닥에 깔았다.
+   ⚠ ★ 메타nickname 을 빠뜨리지 말 것 — 카카오 첫 로그인 순간에는
+     profiles 줄이 아직 없고 user_metadata 의 닉네임이 유일한 이름이다.
+   ⚠ ★ profiles 줄이 «없는» 회원이 있다 (명카페 /auth/signup 으로 가입한 사람).
+     한 줄도 못 찾는 것을 오류로 다루면 그 회원이 막힌다 — sbProfile 은 null 을 준다. */
+function pickName(profile, user) {
+  const one = v => typeof v === "string" ? v.trim() : "";
+  const mail = one(user?.email);
+  return one(profile?.nickname) || one(profile?.hangul_name) || one(user?.user_metadata?.nickname) || (mail ? mail.split("@")[0] : "") || "회원";
+}
 const sbReset = email => sbFetch("/auth/v1/recover", {
   method: "POST",
   body: JSON.stringify({
@@ -8495,12 +8513,14 @@ function Account({
     try {
       const t = await sbSignIn(e, pw);
       const uid = t?.user?.id;
-      let nm = t?.user?.user_metadata?.nickname || "";
+      /* ★ 이름 차례를 pickName 한 곳으로 모았다 (2026-09-05 · 명카페 창 지시).
+            전에는 여기서 메타 → profiles → 이메일앞 순으로 직접 골랐다.
+            큐보드 · 명카페와 차례가 어긋나면 같은 사람이 딴 이름으로 보인다 */
+      let pf = null;
       try {
-        const pf = await sbProfile(t.access_token, uid);
-        if (pf) nm = pf.nickname || pf.hangul_name || nm;
+        pf = await sbProfile(t.access_token, uid);
       } catch (err) {}
-      if (!nm) nm = e.split("@")[0];
+      const nm = pickName(pf, t?.user);
       const {
         games,
         vault
