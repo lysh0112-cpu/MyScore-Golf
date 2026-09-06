@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-33 사진으로 라운드 통째로 -->
+<!-- build: 1판-34 홀인원 · 이글 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -204,6 +204,20 @@ function costsByName(cs) {
     out[n] = (out[n] || 0) + Number(c.amount);
   });
   return out;
+}
+/* ★ 성적 요약 한 줄 — 0 인 것은 안 적는다 (2026-09-06 · 사용자 지시)
+      전에는 "버디 0 · 파 3 · 보기 11" 처럼 0도 적어 홀인원이 묻혔다.
+   ⚠ 세 곳(스코어카드 그림 · 기록 보기 · 카톡 결과표)이 «같은 말» 을 써야 한다.
+     한 곳만 고치면 어긋난다 */
+function tallyWords(z) {
+  if (!z || !z.holes) return "";
+  const t = [];
+  if (z.hio) t.push(`🎯 HOLE IN ONE${z.hio > 1 ? ` ${z.hio}` : ""}`);
+  if (z.eagle) t.push(`🎯 EAGLE${z.eagle > 1 ? ` ${z.eagle}` : ""}`);
+  if (z.birdie) t.push(`버디 ${z.birdie}`);
+  if (z.par) t.push(`파 ${z.par}`);
+  if (z.bogey) t.push(`보기 ${z.bogey}`);
+  return t.join(" · ");
 }
 const golfGames = games => (games || []).filter(g => g && (g.sport === "golf" || g.sport === "parkgolf") && Array.isArray(g.players));
 
@@ -1250,8 +1264,20 @@ function golfName(s, par) {
 }
 
 /* 홀별 결과를 이글·버디·파·보기·더블·트리플로 나눈다 */
+/* ★ 홀인원 · 이글이 난 홀인지 (2026-09-06 · 사용자 지시)
+      둘 다 평생 몇 번 안 되는 것이라 홀 번호 위에 🎯 를 찍는다.
+   ⚠ 파를 모르면 이글인지 알 수 없다 — pars 를 반드시 넘길 것 */
+const isHio = v => Number(v) === 1;
+const isEagle = (v, p) => Number(v) > 1 && Number(p) > 0 && Number(v) - Number(p) <= -2;
+const isBig = (v, p) => isHio(v) || isEagle(v, p);
+
+/* ★ 홀인원을 따로 센다 (2026-09-06 · 사용자 지시)
+      한 타에 넣으면 홀인원이다. 파 3 이든 파 4 든 마찬가지다.
+   ⚠ 이글과 겹칠 때는 «홀인원만» 센다 — 파 3 에 1타는 이글이기도 하지만
+     평생 한 번 하기 힘든 것이라 그쪽으로 적는다 (사용자 지시) */
 function golfTally(card, pars) {
   const z = {
+    hio: 0,
     eagle: 0,
     birdie: 0,
     par: 0,
@@ -1270,7 +1296,7 @@ function golfTally(card, pars) {
     z.sum += s;
     z.parSum += p;
     const d = s - p;
-    if (d <= -2) z.eagle++;else if (d === -1) z.birdie++;else if (d === 0) z.par++;else if (d === 1) z.bogey++;else if (d === 2) z.dbl++;else z.tpl++;
+    if (s === 1) z.hio++; /* ★ 홀인원 — 이글로 세지 않는다 */else if (d <= -2) z.eagle++;else if (d === -1) z.birdie++;else if (d === 0) z.par++;else if (d === 1) z.bogey++;else if (d === 2) z.dbl++;else z.tpl++;
   });
   return z;
 }
@@ -1497,7 +1523,16 @@ function drawCard(o) {
     /* 머리 */
     let cx = L + nameW;
     for (let i = 0; i < holes; i++) {
-      put(i + 1, cx + cellW / 2, top, "#7B93A8", 21);
+      /* ★ 홀인원이 난 홀은 번호를 금색으로 하고 위에 🎯 를 찍는다 (2026-09-06) */
+      const hio = (cards || []).some(c => isBig((c || [])[i], pars[i]));
+      if (hio) {
+        x.textAlign = "center";
+        x.font = "400 19px 'IBM Plex Sans KR', sans-serif";
+        x.fillStyle = "#E8B838";
+        x.fillText("🎯", cx + cellW / 2, top - 20);
+        x.textAlign = "left";
+      }
+      put(i + 1, cx + cellW / 2, top, hio ? "#E8B838" : "#7B93A8", 21);
       cx += cellW;
       /* ★ OUT · IN 대신 전반 · 후반 (2026-09-06 · 사용자 지시).
             골프장 코스 이름 자체가 IN · OUT 인 곳이 있어 "후반 IN · SOUTH" 처럼 겹쳐 보였다 */
@@ -1563,7 +1598,23 @@ function drawCard(o) {
           if (i < 9) so += v;else si += v;
         }
         const sn = golfName(v, Number(pars[i]));
-        put(v || "·", cx + cellW / 2, y - rowH / 3, v ? sn.c.replace("var(--ivory)", "#F4EEDF") : "#3C5468", 30, 1);
+        /* ★ 홀인원은 칸을 금색으로 채운다 (2026-09-06 · 사용자 지시).
+              평생 한 번 하기 힘든 것이라 멀리서도 보여야 한다.
+           ⚠ 테두리만 바꾸면 흑백으로 인쇄했을 때 사라진다 */
+        if (isHio(v)) {
+          x.fillStyle = "#E8B838";
+          x.beginPath();
+          x.roundRect(cx + 3, y - rowH + 8, cellW - 6, rowH - 14, 7);
+          x.fill();
+        } else if (isEagle(v, pars[i])) {
+          /* 이글은 테두리만 — 홀인원과 가려 보이게 */
+          x.strokeStyle = "#E8B838";
+          x.lineWidth = 2;
+          x.beginPath();
+          x.roundRect(cx + 3, y - rowH + 8, cellW - 6, rowH - 14, 7);
+          x.stroke();
+        }
+        put(v || "·", cx + cellW / 2, y - rowH / 3, isHio(v) ? "#141200" : isEagle(v, pars[i]) ? "#E8B838" : v ? sn.c.replace("var(--ivory)", "#F4EEDF") : "#3C5468", 30, 1);
         cx += cellW;
         if (i === 8 && holes > 9) {
           put(so || "-", cx + totW / 2, y - rowH / 3, "#F4EEDF", 30, 1);
@@ -1586,11 +1637,13 @@ function drawCard(o) {
       line(y);
     });
 
-    /* 아래 한 줄 — 이글·버디 요약. 넘치면 글자를 줄인다 */
+    /* 아래 한 줄 — 성적 요약. 넘치면 글자를 줄인다
+       ★ 0 인 것은 안 적는다 (2026-09-06 · 사용자 지시).
+         전에는 "버디 0 · 파 3 · 보기 11" 처럼 0도 적어서 홀인원이 묻혔다 */
     const bits = names.map((n, pi) => {
       const z = golfTally(cards[pi], pars);
       if (!z.holes) return null;
-      return `${String(n).slice(0, 5)} 버디 ${z.birdie} · 파 ${z.par} · 보기 ${z.bogey}`;
+      return `${String(n).slice(0, 5)} ${tallyWords(z)}`;
     }).filter(Boolean).join("      ");
     if (bits) {
       x.textAlign = "left";
@@ -2302,19 +2355,28 @@ function GolfNine({
       display: "flex",
       height: 26
     }
-  }, idx.map(i => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    className: "num",
-    style: {
-      width: GCELL,
-      flexShrink: 0,
-      marginRight: 1,
-      textAlign: "center",
-      lineHeight: "26px",
-      fontSize: 11.5,
-      color: "var(--chalk)"
-    }
-  }, i + 1)), /*#__PURE__*/React.createElement("div", {
+  }, idx.map(i => {
+    const hio = cards.some(c => isBig((c || [])[i], pars[i]));
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "num",
+      style: {
+        width: GCELL,
+        flexShrink: 0,
+        marginRight: 1,
+        textAlign: "center",
+        lineHeight: hio ? "13px" : "26px",
+        fontSize: 11.5,
+        color: hio ? ACCENT : "var(--chalk)",
+        fontWeight: hio ? 700 : 400
+      }
+    }, hio && /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: "block",
+        fontSize: 11
+      }
+    }, "🎯"), i + 1);
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       width: GCELL + 12,
       flexShrink: 0,
@@ -2388,9 +2450,10 @@ function GolfNine({
           flexShrink: 0,
           marginRight: 1,
           borderRadius: 5,
-          background: v ? "rgba(0,0,0,.34)" : "rgba(0,0,0,.16)",
-          border: "1px solid " + (v ? sn.c : "var(--line)"),
-          color: v ? sn.c : "rgba(159,187,208,.3)",
+          /* ★ 홀인원은 금색으로 채운다 (2026-09-06) */
+          background: isHio(v) ? ACCENT : v ? "rgba(0,0,0,.34)" : "rgba(0,0,0,.16)",
+          border: isHio(v) || isEagle(v, pars[i]) ? "2px solid " + ACCENT : "1px solid " + (v ? sn.c : "var(--line)"),
+          color: isHio(v) ? "#141200" : isEagle(v, pars[i]) ? ACCENT : v ? sn.c : "rgba(159,187,208,.3)",
           fontSize: 14,
           fontWeight: 700,
           fontFamily: "'Oswald',sans-serif"
@@ -8266,9 +8329,9 @@ function RoundCard({
     }, p.name), z && z.holes ? /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 11,
-        color: "var(--chalk)"
+        color: z.hio || z.eagle ? ACCENT : "var(--chalk)"
       }
-    }, "버디 ", z.birdie, " · 파 ", z.par) : null, /*#__PURE__*/React.createElement("span", {
+    }, tallyWords(z)) : null, /*#__PURE__*/React.createElement("span", {
       className: "num",
       style: {
         fontSize: 16,
@@ -8464,7 +8527,7 @@ function buildText(g, money = true, code = true, score = true) {
     const part = z && z.holes && z.holes < holes ? `  ${z.holes}홀` : "";
     L.push(`${i + 1}. ${p.name}  ${p.score}타  ${fmtDiff(d)}${part}${i === 0 ? "  🏆" : ""}`);
     /* ★ 버디·파·보기는 줄을 바꿔 붙인다. 한 줄에 다 넣으면 카톡에서 접힌다 */
-    if (z && z.holes) L.push(`   버디 ${z.birdie} · 파 ${z.par} · 보기 ${z.bogey}`);
+    if (z && z.holes) L.push(`   ${tallyWords(z)}`);
   });
   rest.forEach(p => L.push(`-. ${p.name}  기록 없음`));
 
