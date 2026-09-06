@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-30 골프장 목록 받아오기 -->
+<!-- build: 1판-31 전반 후반 표기 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -1499,13 +1499,15 @@ function drawCard(o) {
     for (let i = 0; i < holes; i++) {
       put(i + 1, cx + cellW / 2, top, "#7B93A8", 21);
       cx += cellW;
+      /* ★ OUT · IN 대신 전반 · 후반 (2026-09-06 · 사용자 지시).
+            골프장 코스 이름 자체가 IN · OUT 인 곳이 있어 "후반 IN · SOUTH" 처럼 겹쳐 보였다 */
       if (i === 8 && holes > 9) {
-        put("OUT", cx + totW / 2, top, "#4FB286", 19, 1);
+        put("전반", cx + totW / 2, top, "#4FB286", 19, 1);
         cx += totW;
       }
     }
     if (holes > 9) {
-      put("IN", cx + totW / 2, top, "#4FB286", 19, 1);
+      put("후반", cx + totW / 2, top, "#4FB286", 19, 1);
       cx += totW;
     }
     put("합계", cx + totW / 2, top, "#4FB286", 19, 1);
@@ -2323,7 +2325,7 @@ function GolfNine({
       color: "var(--accent)",
       fontWeight: 700
     }
-  }, from === 0 ? "OUT" : "IN")), /*#__PURE__*/React.createElement("div", {
+  }, from === 0 ? "전반" : "후반")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       height: H
@@ -3387,8 +3389,9 @@ function holeTable(x, o, top, W) {
   }
   x.fillStyle = "#7B93A8";
   x.font = "500 17px 'IBM Plex Sans KR', sans-serif";
-  x.fillText("OUT", G.outX + G.SUM / 2 - 8, top - 22);
-  if (G.backN) x.fillText("IN", G.inEnd + G.SUM / 2 - 8, top - 22);
+  /* ★ OUT · IN 대신 전반 · 후반 (2026-09-06 · 사용자 지시) */
+  x.fillText("전반", G.outX + G.SUM / 2 - 12, top - 22);
+  if (G.backN) x.fillText("후반", G.inEnd + G.SUM / 2 - 12, top - 22);
   x.fillStyle = "#E8B838";
   x.font = "500 19px 'Oswald', sans-serif";
   const parOut = pars.slice(0, G.half).reduce((t, v) => t + (Number(v) || 0), 0);
@@ -6853,7 +6856,7 @@ function Stroke({
       padding: "10px 12px"
     }
   }, /*#__PURE__*/React.createElement(GolfNine, {
-    title: (holes === 9 ? "9홀" : "전반 OUT") + (courseA ? ` · ${courseA}` : ""),
+    title: (holes === 9 ? "9홀" : "전반") + (courseA ? ` · ${courseA}` : ""),
     from: 0,
     count: 9,
     pars: pars,
@@ -6862,7 +6865,7 @@ function Stroke({
     onCell: setPick,
     onMove: movePlayer
   }), holes > 9 && /*#__PURE__*/React.createElement(GolfNine, {
-    title: "후반 IN" + (courseB ? ` · ${courseB}` : ""),
+    title: "후반" + (courseB ? ` · ${courseB}` : ""),
     from: 9,
     count: holes - 9,
     pars: pars,
@@ -7512,7 +7515,7 @@ function GolfEdit({
       padding: "10px 12px"
     }
   }, /*#__PURE__*/React.createElement(GolfNine, {
-    title: (holes === 9 ? "9홀" : "전반 OUT") + (g.courseA ? ` · ${g.courseA}` : ""),
+    title: (holes === 9 ? "9홀" : "전반") + (g.courseA ? ` · ${g.courseA}` : ""),
     from: 0,
     count: 9,
     pars: pars,
@@ -7520,7 +7523,7 @@ function GolfEdit({
     names: names,
     onCell: setPick
   }), holes > 9 && /*#__PURE__*/React.createElement(GolfNine, {
-    title: "후반 IN" + (g.courseB ? ` · ${g.courseB}` : ""),
+    title: "후반" + (g.courseB ? ` · ${g.courseB}` : ""),
     from: 9,
     count: holes - 9,
     pars: pars,
