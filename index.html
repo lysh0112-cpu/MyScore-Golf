@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-32 흐름 정리 -->
+<!-- build: 1판-33 사진으로 라운드 통째로 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -2707,7 +2707,10 @@ const aiKeySet = async v => {
 
 /* 사진 한 장 → 홀별 타수 표.
    ⚠ 모델에게 JSON 만 내놓으라고 못박는다. 설명이 섞이면 못 읽는다 */
-async function aiRead(dataUrl, key, holes) {
+/* ★ full=true 면 골프장 · 코스 · 날짜 · 선수 이름까지 다 읽는다 (2026-09-06 · 사용자 지시).
+      [기존 스코어카드 정리] 는 미리 넣어둔 것이 하나도 없으므로 사진에서 전부 가져와야 한다.
+      false 면 라운드 도중에 타수만 채우는 것이라 홀 수를 알고 있다 */
+async function aiRead(dataUrl, key, holes, full) {
   const i = dataUrl.indexOf(",");
   const media = /image\/(\w+)/.exec(dataUrl.slice(0, i));
   const body = {
@@ -2724,7 +2727,21 @@ async function aiRead(dataUrl, key, holes) {
         }
       }, {
         type: "text",
-        text: `이것은 골프장에서 인쇄해 준 스코어카드입니다. ${holes}홀입니다.
+        text: full ? `이것은 골프장에서 인쇄해 준 스코어카드입니다.
+아래 형태의 JSON 만 답하세요. 설명도 백틱도 붙이지 마세요.
+
+{"date":"2026-09-05","place":"골프장 이름","courseA":"전반 코스","courseB":"후반 코스",
+ "holes":18,"pars":[홀별 파],"players":[{"name":"이름","scores":[홀별 타수]}]}
+
+규칙
+- 확실히 못 읽은 칸은 숫자 대신 null 을 넣으세요. 짐작해서 채우지 마세요.
+- 못 읽은 글자는 빈 문자열 "" 로 두세요.
+- 이름은 사람 이름만. 합계 · OUT · IN · TOTAL · 파 같은 줄은 선수가 아닙니다.
+- holes 는 홀 수입니다. 9 또는 18 입니다.
+- pars 와 scores 는 1번 홀부터 순서대로 holes 개를 채우세요.
+- courseA · courseB 는 전반 · 후반 코스 이름입니다 (동 · 서 · WEST 같은 것).
+  9홀이면 courseB 는 "" 로 두세요.
+- date 는 2026-09-05 모양으로. 사진에 없으면 "" 로 두세요.` : `이것은 골프장에서 인쇄해 준 스코어카드입니다. ${holes}홀입니다.
 아래 형태의 JSON 만 답하세요. 설명도 백틱도 붙이지 마세요.
 
 {"pars":[홀별 파 ${holes}개],"players":[{"name":"이름","scores":[홀별 타수 ${holes}개]}]}
@@ -2773,13 +2790,16 @@ function PhotoRead({
   pars,
   onDone,
   onClose,
-  say
+  say,
+  full
 }) {
   const [key, setKey] = useState("");
   const [phase, setPhase] = useState("pick"); // pick · busy · check · nokey
   const [err, setErr] = useState("");
   const [rows, setRows] = useState([]); // [{ name, pi, scores:[] }]
   const [newPars, setNewPars] = useState(null);
+  const [info, setInfo] = useState(null); /* 전부 읽기 — 골프장 · 코스 · 날짜 */
+
   useEffect(() => {
     (async () => {
       const k = await aiKeyGet();
@@ -2793,20 +2813,30 @@ function PhotoRead({
     setPhase("busy"); /* 고르자마자 "읽는 중" 으로 — 기다리는 줄 알게 */
     try {
       const url = await shrinkPhoto(file, 1600, 0.8);
-      const out = await aiRead(url, key, holes);
-      const got = (out.players || []).map(p => {
-        const sc = (p.scores || []).slice(0, holes);
-        while (sc.length < holes) sc.push(null);
+      const out = await aiRead(url, key, holes, full);
+      /* ★ 전부 읽기(full)면 홀 수도 사진에서 온다 */
+      const hn = full ? Number(out.holes) === 9 ? 9 : 18 : holes;
+      const got = (out.players || []).map((p, i) => {
+        const sc = (p.scores || []).slice(0, hn);
+        while (sc.length < hn) sc.push(null);
+        /* ★ full 이면 이름도 사진에서 온 것을 그대로 쓴다 — 붙일 이름이 아직 없다 */
         return {
           name: p.name || "",
-          pi: matchName(p.name, names),
+          pi: full ? i : matchName(p.name, names),
           scores: sc
         };
       }).filter(p => p.scores.some(v => Number(v) > 0));
       if (!got.length) throw new Error("타수를 찾지 못했습니다. 표 전체가 나오게 다시 찍어주세요");
       setRows(got);
-      if (Array.isArray(out.pars) && out.pars.filter(v => Number(v) > 0).length >= holes - 2) {
-        setNewPars(out.pars.slice(0, holes).map(v => Number(v) || 0));
+      setInfo(full ? {
+        date: (out.date || "").slice(0, 10),
+        place: out.place || "",
+        courseA: out.courseA || "",
+        courseB: out.courseB || "",
+        holes: hn
+      } : null);
+      if (Array.isArray(out.pars) && out.pars.filter(v => Number(v) > 0).length >= hn - 2) {
+        setNewPars(out.pars.slice(0, hn).map(v => Number(v) || 0));
       }
       setPhase("check");
     } catch (e) {
@@ -2817,7 +2847,7 @@ function PhotoRead({
   const total = rows.reduce((t, r) => t + r.scores.length, 0);
   const read = rows.reduce((t, r) => t + r.scores.filter(v => Number(v) > 0).length, 0);
   const apply = () => {
-    onDone(rows, newPars);
+    onDone(rows, newPars, info);
     say(`${read}칸을 넣었습니다`);
     onClose();
   };
@@ -2960,7 +2990,42 @@ function PhotoRead({
       color: "#B9CCDA",
       lineHeight: 1.6
     }
-  }, "노란 칸은 못 읽은 곳입니다. 넣은 뒤 스코어카드에서 눌러 채우세요.")), rows.map((r, ri) => /*#__PURE__*/React.createElement("div", {
+  }, "노란 칸은 못 읽은 곳입니다. 넣은 뒤 스코어카드에서 눌러 채우세요.")), info && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "rgba(0,0,0,.3)",
+      borderRadius: 10,
+      padding: "11px 13px",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: "#7E9AB0",
+      letterSpacing: ".12em",
+      marginBottom: 7
+    }
+  }, "읽어온 것"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      lineHeight: 1.9
+    }
+  }, info.date || /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#6F8598"
+    }
+  }, "날짜 못 읽음"), "  ·  ", /*#__PURE__*/React.createElement("b", null, info.place || /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#6F8598",
+      fontWeight: 400
+    }
+  }, "골프장 못 읽음")), /*#__PURE__*/React.createElement("br", null), [info.courseA, info.courseB].filter(Boolean).join(" · ") || "코스 못 읽음", "  ·  ", info.holes, "홀"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: "#6F8598",
+      lineHeight: 1.6,
+      marginTop: 7
+    }
+  }, "틀린 곳은 스코어카드에서 [← 설정] 으로 고치시면 됩니다")), rows.map((r, ri) => /*#__PURE__*/React.createElement("div", {
     key: ri,
     style: {
       marginBottom: 12
@@ -2977,7 +3042,13 @@ function PhotoRead({
       fontSize: 13.5,
       fontWeight: 700
     }
-  }, r.name || "이름 없음"), /*#__PURE__*/React.createElement("span", {
+  }, r.name || "이름 없음"), full ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 11.5,
+      color: "var(--chalk)"
+    }
+  }, r.scores.filter(v => Number(v) > 0).reduce((t, v) => t + Number(v), 0), "타", " · ", r.scores.filter(v => Number(v) > 0).length, "홀 읽음") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
       color: "var(--chalk)"
@@ -3002,7 +3073,7 @@ function PhotoRead({
   }, "안 넣기"), names.map((n, i) => /*#__PURE__*/React.createElement("option", {
     key: i,
     value: i
-  }, n)))), /*#__PURE__*/React.createElement("div", {
+  }, n))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexWrap: "wrap",
@@ -3036,7 +3107,7 @@ function PhotoRead({
     style: {
       marginBottom: 7
     }
-  }, "이대로 넣기"), /*#__PURE__*/React.createElement("button", {
+  }, full ? "이대로 스코어카드 열기" : "이대로 넣기"), /*#__PURE__*/React.createElement("button", {
     className: "ghost",
     onClick: () => {
       setRows([]);
@@ -5892,7 +5963,8 @@ function RoundSetup({
   resumed,
   onDrop,
   setPars,
-  courseAt
+  courseAt,
+  onPhoto
 }) {
   const [pickDo, setPickDo] = useState(""); /* 시 · 도 */
   const [pickSi, setPickSi] = useState(""); /* 지역 */
@@ -5948,7 +6020,38 @@ function RoundSetup({
       background: kind === k ? ACCENT : "rgba(0,0,0,.32)",
       color: kind === k ? "#141200" : "#61798C"
     }
-  }, t))), /*#__PURE__*/React.createElement("div", {
+  }, t))), kind === "old" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: onPhoto,
+    style: {
+      width: "100%",
+      border: "1px dashed rgba(232,184,56,.45)",
+      borderRadius: 12,
+      padding: 24,
+      textAlign: "center",
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 26
+    }
+  }, "📷"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 14.5,
+      fontWeight: 700,
+      marginTop: 8
+    }
+  }, "스코어카드 찍기 · 사진 고르기")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: "#7E9AB0",
+      lineHeight: 1.8
+    }
+  }, "클럽하우스에서 뽑은 종이를 평평하게 놓고 표 전체가 들어오게 찍으세요.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: ACCENT
+    }
+  }, "골프장 · 코스 · 날짜 · 선수 이름 · 홀별 타수를 모두 읽어옵니다."), /*#__PURE__*/React.createElement("br", null), "미리 넣을 것이 없습니다. 못 읽은 칸은 스코어카드에서 눌러 채우시면 됩니다.")), kind === "new" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -5960,7 +6063,7 @@ function RoundSetup({
       fontSize: 19,
       fontWeight: 700
     }
-  }, kind === "new" ? "새 라운드 설정" : "지난 라운드 넣기"), hasLast && /*#__PURE__*/React.createElement("button", {
+  }, "새 라운드 설정"), hasLast && /*#__PURE__*/React.createElement("button", {
     onClick: onFillLast,
     style: {
       display: "inline-flex",
@@ -6319,14 +6422,14 @@ function RoundSetup({
       fontSize: 17,
       borderRadius: 14
     }
-  }, kind === "new" ? "라운드 시작" : "스코어 넣기"), /*#__PURE__*/React.createElement("div", {
+  }, "라운드 시작"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "#6F8598",
       textAlign: "center",
       marginTop: 9
     }
-  }, "누르면 곧바로 가로 스코어카드로 열립니다"));
+  }, "누르면 곧바로 가로 스코어카드로 열립니다")));
 }
 /* ★ 라운드 중에 설정으로 돌아갈 때 한 번 묻는다 (2026-09-04).
       선수를 빼면 그 사람 타수도 함께 사라지므로 미리 알린다 */
@@ -6436,7 +6539,8 @@ function Stroke({
         기타 설정 아래 [버리고 새 라운드] 를 쓴다 */
   const [resumed, setResumed] = useState(false);
   const [ask, setAsk] = useState(false); /* 설정으로 돌아갈까요 */
-  const [shot, setShot] = useState(false); /* 사진으로 스코어 읽기 */
+  const [shot, setShot] = useState(false); /* 라운드 중 — 타수만 채우기 */
+  const [shotFull, setShotFull] = useState(false); /* ★ 홈에서 — 사진 한 장으로 통째로 */
   const [prev, setPrev] = useState(null); /* 보내기 전 미리보기 */
   const liveReady = useRef(false); // 되살리기가 끝나야 담기 시작
   const [award, setAward] = useState(false);
@@ -6655,6 +6759,33 @@ function Stroke({
     });
     if (ps && ps.length) setPars(ps);
   };
+
+  /* ★ 사진 한 장으로 라운드를 통째로 연다 (2026-09-06 · 사용자 지시).
+        [기존 스코어카드 정리] — 미리 넣어둔 것이 하나도 없으므로
+        골프장 · 코스 · 날짜 · 이름 · 타수를 전부 사진에서 가져온다.
+     ⚠ 못 읽은 칸은 비워둔 채로 연다. 사용자가 종이를 보며 노란 칸을 눌러 채운다 */
+  const openFromPhoto = (rows, ps, o) => {
+    const who = rows.map(r => cutName(r.name) || "선수").slice(0, MAXP);
+    const hn = o?.holes === 9 ? 9 : 18;
+    setNames(who.length >= 1 ? who : ["", "", "", ""]);
+    setFront(9);
+    setBack(hn === 9 ? 0 : 9);
+    if (o?.date) setDate(o.date);
+    if (o?.place) setPlace(o.place);
+    setCourseA(o?.courseA || "");
+    setCourseB(o?.courseB || "");
+    setPars(ps && ps.length ? ps : parsFor(hn, sport));
+    setCards(rows.slice(0, MAXP).map(r => Array.from({
+      length: hn
+    }, (_, i) => Number(r.scores[i]) > 0 ? String(Number(r.scores[i])) : "")));
+    setShare(x => ({
+      ...x,
+      n: String(who.length || 4)
+    }));
+    setPhase("play");
+    setBig(true);
+    setSub("score");
+  };
   const backToSetup = () => {
     liveSaveNow();
     setBig(false);
@@ -6768,7 +6899,7 @@ function Stroke({
 
   /* ── 셋업 = 홈 ──
      ★ 대회 시상은 하단 탭으로 옮겼다 (사용자 지시). 여기 단추는 없다 */
-  if (phase === "setup") return /*#__PURE__*/React.createElement(RoundSetup, {
+  if (phase === "setup") return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(RoundSetup, {
     sport: sport,
     setSport: changeSport,
     date: date,
@@ -6795,8 +6926,17 @@ function Stroke({
     onFillLast: fillLast,
     hasLast: !!last,
     resumed: resumed,
-    onDrop: liveDrop
-  });
+    onDrop: liveDrop,
+    onPhoto: () => setShotFull(true)
+  }), shotFull && /*#__PURE__*/React.createElement(PhotoRead, {
+    full: true,
+    names: [],
+    holes: 18,
+    pars: pars,
+    say: say,
+    onDone: openFromPhoto,
+    onClose: () => setShotFull(false)
+  }));
 
   /* ── 스코어 입력 · 전체화면 가로 ── */
   if (big) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
