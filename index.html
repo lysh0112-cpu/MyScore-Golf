@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-36 홀인원 테두리 · 스코어 지킴 -->
+<!-- build: 1판-37 탭 옮길 때 가로 풀기 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -9396,6 +9396,13 @@ function App() {
   const [sheet, setSheet] = useState(null);
   const dataRef = useRef(data);
   const bareNow = bare && tab === "home";
+  /* ★ 탭을 옮기면 가로 전체화면을 반드시 푼다 (2026-09-06).
+        안 그러면 검은 바탕이 남아 다른 탭이 안 보일 수 있다.
+        bareNow 로 가리기는 하지만, 상태 자체를 풀어두는 편이 안전하다 */
+  useEffect(() => {
+    if (tab !== "home" && bare) setBare(false);
+  }, [tab]); // eslint-disable-line
+
   useEffect(() => {
     document.body.style.background = bareNow ? "#000" : "#0A2438";
   }, [bareNow]);
