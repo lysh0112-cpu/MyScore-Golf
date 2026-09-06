@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-31 전반 후반 표기 -->
+<!-- build: 1판-32 흐름 정리 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -5897,6 +5897,7 @@ function RoundSetup({
   const [pickDo, setPickDo] = useState(""); /* 시 · 도 */
   const [pickSi, setPickSi] = useState(""); /* 지역 */
   const [byHand, setByHand] = useState(false); /* 목록에 없어 직접 치는 중 */
+  const [kind, setKind] = useState("new"); /* new = 지금 치러 감 · old = 지난 것 넣기 */
   const park = sport === "parkgolf";
   const card = {
     background: "#0F2A42",
@@ -5930,6 +5931,25 @@ function RoundSetup({
   const addP = () => names.length < MAXP && setNames([...names, ""]);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 6,
+      marginBottom: 14
+    }
+  }, [["new", "새 라운드 설정"], ["old", "기존 스코어카드 정리"]].map(([k, t]) => /*#__PURE__*/React.createElement("button", {
+    key: k,
+    onClick: () => setKind(k),
+    style: {
+      borderRadius: 10,
+      padding: "12px 0",
+      fontSize: 13.5,
+      fontWeight: 600,
+      lineHeight: 1.2,
+      background: kind === k ? ACCENT : "rgba(0,0,0,.32)",
+      color: kind === k ? "#141200" : "#61798C"
+    }
+  }, t))), /*#__PURE__*/React.createElement("div", {
+    style: {
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
@@ -5940,7 +5960,7 @@ function RoundSetup({
       fontSize: 19,
       fontWeight: 700
     }
-  }, "새 라운드 설정"), hasLast && /*#__PURE__*/React.createElement("button", {
+  }, kind === "new" ? "새 라운드 설정" : "지난 라운드 넣기"), hasLast && /*#__PURE__*/React.createElement("button", {
     onClick: onFillLast,
     style: {
       display: "inline-flex",
@@ -6299,14 +6319,14 @@ function RoundSetup({
       fontSize: 17,
       borderRadius: 14
     }
-  }, "라운드 시작"), /*#__PURE__*/React.createElement("div", {
+  }, kind === "new" ? "라운드 시작" : "스코어 넣기"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "#6F8598",
       textAlign: "center",
       marginTop: 9
     }
-  }, "스코어 입력은 가로 전체화면으로 열립니다"));
+  }, "누르면 곧바로 가로 스코어카드로 열립니다"));
 }
 /* ★ 라운드 중에 설정으로 돌아갈 때 한 번 묻는다 (2026-09-04).
       선수를 빼면 그 사람 타수도 함께 사라지므로 미리 알린다 */
@@ -6404,6 +6424,11 @@ function Stroke({
   const [names, setNames] = useState(["", "", "", ""]);
   const [cards, setCards] = useState([]);
   const [big, setBig] = useState(false);
+  /* ★ 세로 화면을 둘로 나눴다 (2026-09-06 · 사용자 지시)
+        score = 성적만 · card = 스코어카드 만들기 + 그다음에 돈
+        다 치고 나서 궁금한 것은 "몇 타 쳤나" 뿐이다. 돈은 나중 일이다 */
+  const [sub, setSub] = useState("score");
+  const [fold, setFold] = useState(""); /* 펼쳐둔 돈 상자 하나 */
   const [pick, setPick] = useState(null);
   /* ★ 되살렸다는 배너는 없앴다 (사용자 지시 · 불필요).
         되살리기 자체는 그대로 둔다 — 스코어를 넣다 나갔다 돌아왔을 때
@@ -6649,6 +6674,11 @@ function Stroke({
       setPars(use);
     }
     setNames(who); /* 빈 칸을 걷어내고 실제 인원만 남긴다 */
+    /* ★ 곧바로 가로 스코어카드로 (2026-09-06 · 사용자 지시).
+          전에는 세로 화면을 한 번 거쳐 [스코어 입력·가로화면] 을 또 눌러야 했다.
+          그 화면이 하는 일은 "가로로 들어가는 문" 뿐이라 없앴다 */
+    setBig(true);
+    setSub("score");
     setShare(x => ({
       ...x,
       n: String(who.length)
@@ -6893,7 +6923,46 @@ function Stroke({
     onClose: () => setShot(false)
   }));
 
-  /* ── 세로 화면 ── */
+  /* ── 세로 화면 ①  성적만 ── */
+  if (sub === "score") return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 14
+    }
+  }, /*#__PURE__*/React.createElement(GolfTally, {
+    names: names,
+    cards: cards,
+    pars: pars,
+    holes: holes
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "prim",
+    onClick: () => setSub("card"),
+    style: {
+      padding: 16,
+      fontSize: 15.5
+    }
+  }, "🖼 스코어카드 만들어 보기"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => setBig(true)
+  }, "← 스코어 고치러 가기"), ask && /*#__PURE__*/React.createElement(BackAsk, {
+    onGo: backToSetup,
+    onBack: () => setAsk(false)
+  }), shot && /*#__PURE__*/React.createElement(PhotoRead, {
+    names: names,
+    holes: holes,
+    pars: pars,
+    say: say,
+    onDone: applyRead,
+    onClose: () => setShot(false)
+  }));
+
+  /* ── 세로 화면 ②  스코어카드 만들기 → 그다음에 돈 ── */
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -6901,7 +6970,7 @@ function Stroke({
       gap: 14
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setAsk(true),
+    onClick: () => setSub("score"),
     style: {
       alignSelf: "flex-start",
       display: "flex",
@@ -6913,42 +6982,7 @@ function Stroke({
       fontSize: 12.5,
       color: "#B9CCDA"
     }
-  }, "← 설정 고치기"), /*#__PURE__*/React.createElement("button", {
-    className: "prim",
-    onClick: () => setBig(true),
-    style: {
-      padding: 16,
-      fontSize: 16,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 9
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 18
-    }
-  }, "⤢"), " 스코어 입력 · 가로 화면"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShot(true),
-    style: {
-      width: "100%",
-      border: "1px dashed rgba(232,184,56,.45)",
-      borderRadius: 12,
-      padding: "13px 0",
-      fontSize: 13.5,
-      color: ACCENT
-    }
-  }, "📷 인쇄된 스코어카드 찍어서 불러오기"), /*#__PURE__*/React.createElement("div", {
-    className: "card",
-    style: {
-      padding: 14
-    }
-  }, /*#__PURE__*/React.createElement(GolfTally, {
-    names: names,
-    cards: cards,
-    pars: pars,
-    holes: holes
-  })), /*#__PURE__*/React.createElement("div", {
+  }, "← 성적 보기"), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       padding: 14
@@ -7056,19 +7090,50 @@ function Stroke({
       lineHeight: 1.6,
       marginTop: 9
     }
-  }, "그림을 먼저 보여드립니다. 확인하고 나서 톡으로 보내거나 사진첩에 저장하세요.")), /*#__PURE__*/React.createElement(CostList, {
+  }, "그림을 먼저 보여드립니다. 확인하고 나서 톡으로 보내거나 사진첩에 저장하세요.")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: "1px solid var(--line)",
+      paddingTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "lbl",
+    style: {
+      marginTop: 0
+    }
+  }, "그다음 — 돈 정리"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 7
+    }
+  }, /*#__PURE__*/React.createElement(Fold, {
+    title: "골프장 비용",
+    sub: "그린피 · 카트비 · 캐디피 …",
+    open: fold === "green",
+    setOpen: v => setFold(v ? "green" : "")
+  }, /*#__PURE__*/React.createElement(CostList, {
     costs: green,
     setCosts: setGreen,
     people: names.length,
     title: "골프장 비용",
     hint: "그린피 · 카트비 · 캐디피 · 식대 · 그늘집. 필요 없는 줄은 지우고 다른 항목을 넣어도 됩니다."
-  }), /*#__PURE__*/React.createElement(CostList, {
+  })), /*#__PURE__*/React.createElement(Fold, {
+    title: "그 밖의 비용",
+    sub: "유류비 · 톨비",
+    open: fold === "out",
+    setOpen: v => setFold(v ? "out" : "")
+  }, /*#__PURE__*/React.createElement(CostList, {
     costs: outside,
     setCosts: setOutside,
     people: names.length,
     title: "그 밖의 비용",
     hint: "골프장 밖에서 쓴 것. 유류비 · 톨비 · 뒤풀이 등."
-  }), totalCost > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Settle, {
+  })), /*#__PURE__*/React.createElement(Fold, {
+    title: "정산",
+    sub: share.on ? `${share.n}명으로 나눔` : "혼자 봄",
+    open: fold === "settle",
+    setOpen: v => setFold(v ? "settle" : "")
+  }, /*#__PURE__*/React.createElement(Settle, {
     total: totalCost,
     people: names.length,
     share: share,
@@ -7104,13 +7169,23 @@ function Stroke({
     }, nm2), /*#__PURE__*/React.createElement("span", {
       className: "num"
     }, won(by[nm2]), "원"))));
-  })()), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "lbl"
-  }, "메모"), /*#__PURE__*/React.createElement("input", {
+  })()), /*#__PURE__*/React.createElement(Fold, {
+    title: "메모",
+    sub: memo ? memo.slice(0, 10) : "",
+    open: fold === "memo",
+    setOpen: v => setFold(v ? "memo" : "")
+  }, /*#__PURE__*/React.createElement("input", {
     value: memo,
     onChange: e => setMemo(e.target.value),
     placeholder: "날씨, 특이사항 등"
-  })), /*#__PURE__*/React.createElement("button", {
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: "#6F8598",
+      lineHeight: 1.6,
+      marginTop: 9
+    }
+  }, "안 쓰시면 그냥 두셔도 됩니다. 결과표에 안 나갑니다.")), /*#__PURE__*/React.createElement("button", {
     className: "prim",
     onClick: commit
   }, "저장하고 결과표 만들기"), /*#__PURE__*/React.createElement("button", {
@@ -7155,6 +7230,52 @@ function Stroke({
 
 const SETTLE_ACC = "golf:account:v1"; /* 입금 계좌 — 이 기기에 담아 다음에도 쓴다 */
 
+/* ★ 접히는 상자 (2026-09-06 · 사용자 지시)
+      비용·정산·메모는 개인 라운드면 안 쓰는 경우가 많다.
+      늘 펼쳐져 있으면 화면만 길어진다. 눌러서 편다 */
+function Fold({
+  title,
+  sub,
+  children,
+  open,
+  setOpen
+}) {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOpen(!open),
+    style: {
+      width: "100%",
+      background: "#0F2A42",
+      borderRadius: open ? "12px 12px 0 0" : 12,
+      padding: "13px 14px",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      textAlign: "left"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 13.5,
+      fontWeight: 600
+    }
+  }, title), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11.5,
+      color: "var(--chalk)"
+    }
+  }, sub), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: "var(--chalk)"
+    }
+  }, open ? "▲" : "▼")), open && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "rgba(0,0,0,.2)",
+      borderRadius: "0 0 12px 12px",
+      padding: "13px 12px"
+    }
+  }, children));
+}
 const ceilTo = (n, unit) => Math.ceil((Number(n) || 0) / unit) * unit;
 function Settle({
   total,
