@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-40 동그라미에 이름 첫 글자 -->
+<!-- build: 1판-41 사진 읽기 서버 길 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -2830,22 +2830,11 @@ const aiKeySet = async v => {
       false 면 라운드 도중에 타수만 채우는 것이라 홀 수를 알고 있다 */
 async function aiRead(dataUrl, key, holes, full) {
   const i = dataUrl.indexOf(",");
-  const media = /image\/(\w+)/.exec(dataUrl.slice(0, i));
-  const body = {
-    model: AI_MODEL,
-    max_tokens: 1500,
-    messages: [{
-      role: "user",
-      content: [{
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: media ? `image/${media[1]}` : "image/jpeg",
-          data: dataUrl.slice(i + 1)
-        }
-      }, {
-        type: "text",
-        text: full ? `이것은 골프장에서 인쇄해 준 스코어카드입니다.
+  /* ★ 프롬프트는 «서버가» 갖고 있습니다 (2026-09-10 · 명카페가 만든 길).
+        아래 글은 이제 안 보냅니다 — 서버와 어긋나지 않게 남겨만 둡니다.
+     ⚠ 프롬프트를 고칠 일이 생기면 «명카페 창» 에서 고쳐야 합니다.
+       여기서 고쳐도 아무 일도 안 일어납니다 */
+  const _prompt = full ? `이것은 골프장에서 인쇄해 준 스코어카드입니다.
 아래 형태의 JSON 만 답하세요. 설명도 백틱도 붙이지 마세요.
 
 {"date":"2026-09-05","place":"골프장 이름","courseA":"전반 코스","courseB":"후반 코스",
@@ -2867,21 +2856,32 @@ async function aiRead(dataUrl, key, holes, full) {
 규칙
 - 숫자를 확실히 못 읽은 칸은 숫자 대신 null 을 넣으세요. 짐작해서 채우지 마세요.
 - 이름은 사람 이름만. 합계·OUT·IN·TOTAL 같은 줄은 선수가 아닙니다.
-- 홀별 타수는 왼쪽 홀부터 순서대로 ${holes}개를 채우세요.`
-      }]
-    }]
-  };
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+- 홀별 타수는 왼쪽 홀부터 순서대로 ${holes}개를 채우세요.`;
+
+  /* ★★ 우리 서버를 거친다 (2026-09-10)
+        전에는 브라우저가 Anthropic 을 바로 불렀고 열쇠를 기기마다 넣어야 했다.
+        이제 서버가 열쇠를 갖고, 로그인과 잔액을 확인한 뒤에 부른다.
+        ⇒ 회원 누구나 쓸 수 있다.
+      ⚠ 머리 셋(x-api-key · anthropic-version · dangerous-direct-browser-access)을
+       걷어냈다. 서버가 붙인다.
+     ⚠ 돌아오는 것은 Anthropic 응답 «그대로» 라 아래 읽는 코드는 그대로 둔다.
+     ⚠ 잔액이 모자라면 402 로 { error: { message } } 가 온다 —
+       그 글이 사용자 화면에 그대로 뜬다 */
+  const res = await fetch("https://myjae.kr/api/golf/read-photo", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
+      ...(key ? {
+        Authorization: `Bearer ${key}`
+      } : {})
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify({
+      image: dataUrl.slice(i + 1),
+      full: !!full,
+      holes
+    })
   });
-  const j = await res.json();
+  const j = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(j?.error?.message || `서버 오류 ${res.status}`);
   const txt = (j.content || []).filter(c => c.type === "text").map(c => c.text).join("");
   const s = txt.replace(/```json|```/g, "").trim();
@@ -2909,22 +2909,20 @@ function PhotoRead({
   onDone,
   onClose,
   say,
-  full
+  full,
+  token
 }) {
-  const [key, setKey] = useState("");
-  const [phase, setPhase] = useState("pick"); // pick · busy · check · nokey
+  /* ★ 이제 «로그인 토큰» 을 보낸다 (2026-09-10).
+        전에는 AI 열쇠를 기기마다 넣어 브라우저가 바로 불렀다.
+        서버가 열쇠를 갖게 되면서, 우리가 보낼 것은 "누구인가" 하나뿐이다.
+     ⚠ 로그인 안 한 사람은 못 쓴다 — 누구 지갑에서 뺄지 알 수 없기 때문이다 */
+  const key = token || "";
+  const [phase, setPhase] = useState(token ? "pick" : "nologin");
   const [err, setErr] = useState("");
   const [rows, setRows] = useState([]); // [{ name, pi, scores:[] }]
   const [newPars, setNewPars] = useState(null);
   const [info, setInfo] = useState(null); /* 전부 읽기 — 골프장 · 코스 · 날짜 */
 
-  useEffect(() => {
-    (async () => {
-      const k = await aiKeyGet();
-      setKey(k);
-      if (!k) setPhase("nokey");
-    })();
-  }, []);
   const pick = async file => {
     if (!file) return;
     setErr("");
@@ -2993,20 +2991,24 @@ function PhotoRead({
   }, /*#__PURE__*/React.createElement("div", {
     onClick: e => e.stopPropagation(),
     style: box
-  }, phase === "nokey" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, phase === "nologin" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 16,
       fontWeight: 700,
       marginBottom: 10
     }
-  }, "AI 열쇠가 없습니다"), /*#__PURE__*/React.createElement("div", {
+  }, "먼저 로그인해 주세요"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12.5,
       color: "var(--chalk)",
       lineHeight: 1.75,
       marginBottom: 14
     }
-  }, "사진을 읽으려면 열쇠가 필요합니다. 오른쪽 위 계정 화면에서 한 번만 넣으면 됩니다.", /*#__PURE__*/React.createElement("br", null), "★ 열쇠는 이 기기에만 담기고 밖으로 안 나갑니다."), /*#__PURE__*/React.createElement("button", {
+  }, "사진 읽기는 한 번에 200원이 지갑에서 빠집니다. 누구 지갑에서 뺄지 알아야 하므로 로그인이 필요합니다.", /*#__PURE__*/React.createElement("br", null), "오른쪽 위 ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "var(--ivory)"
+    }
+  }, "＋"), " 를 눌러 카카오로 3초면 됩니다."), /*#__PURE__*/React.createElement("button", {
     className: "ghost",
     onClick: onClose
   }, "닫기")), phase === "pick" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
@@ -3022,7 +3024,11 @@ function PhotoRead({
       lineHeight: 1.75,
       marginBottom: 14
     }
-  }, "클럽하우스에서 뽑은 종이를 평평하게 놓고, 표 전체가 들어오게 찍어주세요. 그늘이 지거나 기울면 잘 못 읽습니다."), err && /*#__PURE__*/React.createElement("div", {
+  }, "클럽하우스에서 뽑은 종이를 평평하게 놓고, 표 전체가 들어오게 찍어주세요. 그늘이 지거나 기울면 잘 못 읽습니다.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: ACCENT
+    }
+  }, "한 번에 200원"), "이 지갑에서 빠집니다."), err && /*#__PURE__*/React.createElement("div", {
     style: {
       background: "rgba(226,75,74,.12)",
       border: "1px solid rgba(226,75,74,.5)",
@@ -7166,6 +7172,7 @@ function Stroke({
     holes: 18,
     pars: pars,
     say: say,
+    token: data.session?.access_token,
     onDone: openFromPhoto,
     onClose: () => setShotFull(false)
   }));
@@ -7297,6 +7304,7 @@ function Stroke({
     holes: holes,
     pars: pars,
     say: say,
+    token: data.session?.access_token,
     onDone: applyRead,
     onClose: () => setShot(false)
   }));
@@ -7355,6 +7363,7 @@ function Stroke({
     holes: holes,
     pars: pars,
     say: say,
+    token: data.session?.access_token,
     onDone: applyRead,
     onClose: () => setShot(false)
   }));
@@ -7604,6 +7613,7 @@ function Stroke({
     holes: holes,
     pars: pars,
     say: say,
+    token: data.session?.access_token,
     onDone: applyRead,
     onClose: () => setShot(false)
   }), prev && /*#__PURE__*/React.createElement(CardPreview, {
