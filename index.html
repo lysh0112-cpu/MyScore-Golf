@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-39 카카오 로그인 · 이름 칸 넓힘 -->
+<!-- build: 1판-40 동그라미에 이름 첫 글자 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -5701,6 +5701,7 @@ function Banner({
   tv,
   setTv,
   me,
+  nick,
   onLogin
 }) {
   const [ok, setOk] = useState(true);
@@ -5740,8 +5741,10 @@ function Banner({
       background: me ? ACCENT : "rgba(0,0,0,.3)",
       color: me ? "#141200" : "var(--chalk)",
       border: "1px solid rgba(255,255,255,.2)"
+      /* ★ 이름의 첫 글자를 찍는다 (2026-09-10 · 사용자 지적).
+            전에는 me(계정 번호 uuid)의 첫 글자를 찍어 "1" 이 나왔다 */
     }
-  }, me ? me.slice(0, 1) : "＋")), ok ? /*#__PURE__*/React.createElement("img", {
+  }, me ? (nick || "회원").trim().slice(0, 1) || "회" : "＋")), ok ? /*#__PURE__*/React.createElement("img", {
     src: "logo.jpg",
     alt: "골프온",
     onError: () => setOk(false),
@@ -9949,6 +9952,7 @@ function App() {
     tv: tv,
     setTv: setTv,
     me: data.me,
+    nick: data.nick,
     onLogin: () => setLogin(true)
   }), /*#__PURE__*/React.createElement("div", {
     style: {
