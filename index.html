@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-38 입력 끝에 저장 · 결과표 안내 -->
+<!-- build: 1판-39 카카오 로그인 · 이름 칸 넓힘 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -744,8 +744,65 @@ const sbProfile = async (token, uid) => {
 function pickName(profile, user) {
   const one = v => typeof v === "string" ? v.trim() : "";
   const mail = one(user?.email);
-  return one(profile?.nickname) || one(profile?.hangul_name) || one(user?.user_metadata?.nickname) || (mail ? mail.split("@")[0] : "") || "회원";
+  /* ★★ 카카오는 nickname 을 «주지 않는다» (2026-09-10 · 명카페 창이 실제로 재봄).
+        raw_user_meta_data 에 오는 것 — name · full_name · user_name · preferred_username
+        ⇒ 셋째 칸이 «언제나 빈» 칸이라, 카카오 첫 로그인(profiles 줄이 없는 찰나)에
+          이메일 앞자리로 떨어졌다.
+        ⚠ 차례 다섯 줄은 그대로 두고 «읽는 칸만» 넓힌다.
+          한 곳만 바꾸면 세 앱이 다시 갈라진다 */
+  const m = user?.user_metadata || {};
+  const meta = one(m.nickname) || one(m.name) || one(m.full_name) || one(m.user_name) || one(m.preferred_username);
+  return one(profile?.nickname) || one(profile?.hangul_name) || meta || (mail ? mail.split("@")[0] : "") || "회원";
 }
+
+/* ══ 카카오 로그인 ═══════════════════════════
+   (2026-09-10 · 명카페 창이 확인해 준 대로)
+
+   ★ 골프온은 supabase-js 를 안 쓴다. 주소를 열어 넘기고, 돌아온 조각을 담는다.
+
+     카카오가 돌려보내는 곳    supabase.co/auth/v1/callback  (카카오 콘솔에 등록된 하나)
+     Supabase 가 돌려보내는 곳  ★ redirect_to 에 적은 곳 = 지금 열린 주소
+
+   ⇒ 카카오는 golf.myjae.kr 을 «볼 일이 없다». 앱 대표 도메인이 myjae.kr 하나여도 안 막힌다.
+
+   ⛔ 카카오 키(REST API 키 · 시크릿)를 여기 넣지 말 것 — Supabase 가 갖고 있다.
+      provider=kakao 만 부르면 된다.                                     */
+const kakaoGo = () => {
+  const L = typeof window !== "undefined" && window.location;
+  if (!L) return;
+  const back = encodeURIComponent(L.origin + L.pathname);
+  L.href = `${SB_URL}/auth/v1/authorize?provider=kakao&redirect_to=${back}`;
+};
+
+/* 돌아온 주소 조각에서 세션을 꺼낸다.
+   #access_token=… &refresh_token=… &expires_at=…
+   ⚠ ★ 담은 뒤 «조각을 지운다» — 그 주소가 남에게 넘어가면 그대로 세션이다 */
+function kakaoCatch() {
+  /* ⚠ 브라우저 밖(검사)에서도 안 죽게 — window 가 없으면 그냥 넘어간다 */
+  const L = typeof window !== "undefined" && window.location;
+  if (!L) return null;
+  const h = (L.hash || "").replace(/^#/, "");
+  if (!h.includes("access_token")) return null;
+  const q = new URLSearchParams(h);
+  const at = q.get("access_token"),
+    rt = q.get("refresh_token");
+  if (!at) return null;
+  const exp = Number(q.get("expires_at")) || Math.floor(Date.now() / 1000) + (Number(q.get("expires_in")) || 3600);
+  try {
+    window.history.replaceState(null, "", L.pathname + L.search);
+  } catch (e) {}
+  return {
+    access_token: at,
+    refresh_token: rt || "",
+    expires_at: exp
+  };
+}
+
+/* 토큰으로 "누구인가" 를 묻는다 — 카카오로 돌아왔을 때 쓴다.
+   이메일 로그인은 응답에 user 가 함께 오지만, 조각으로 돌아온 길에는 토큰뿐이다 */
+const sbWho = token => sbFetch("/auth/v1/user", {
+  token
+});
 const sbReset = email => sbFetch("/auth/v1/recover", {
   method: "POST",
   body: JSON.stringify({
@@ -9007,6 +9064,11 @@ function Account({
       vault: pool.filter(g => !isMine(g))
     };
   };
+
+  /* ★ 카카오로 돌아왔을 때 받는다 (2026-09-10)
+        조각(#access_token=…)이 붙어 있으면 그것으로 로그인을 마친다.
+        ⚠ 계정 창이 닫혀 있어도 받아야 하므로 90-app 이 아니라 여기서 하면 늦다 —
+          그래서 App 이 처음 켤 때 부르고, 여기서는 단추만 만든다 */
   const signIn = async () => {
     const e = email.trim().toLowerCase();
     if (!e || !pw) return say("이메일과 비밀번호를 넣어주세요");
@@ -9229,7 +9291,49 @@ function Account({
     style: {
       fontSize: 13.5
     }
-  }, "로그아웃")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }, "로그아웃")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: kakaoGo,
+    style: {
+      width: "100%",
+      background: "#FEE500",
+      color: "#191600",
+      borderRadius: 10,
+      padding: "15px 0",
+      fontSize: 15,
+      fontWeight: 700
+    }
+  }, "카카오로 3초 만에 시작"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6F8598",
+      lineHeight: 1.7,
+      margin: "8px 0 16px"
+    }
+  }, "명카페 · 큐보드와 같은 계정입니다. 한 번 로그인하면 세 곳에서 그대로 쓰입니다."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      height: 1,
+      background: "var(--line)"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: "#6F8598"
+    }
+  }, "또는 이메일로"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      height: 1,
+      background: "var(--line)"
+    }
+  })), /*#__PURE__*/React.createElement("span", {
     className: "lbl"
   }, "이메일"), /*#__PURE__*/React.createElement("input", {
     value: email,
@@ -9581,6 +9685,43 @@ function App() {
         dataRef.current = n;
         setData(n);
       };
+
+      /* ★★ 카카오로 돌아왔다면 여기서 받는다 (2026-09-10)
+            주소 조각(#access_token=…)에 세션이 실려 온다.
+            ⚠ 계정 창이 닫힌 채로 돌아오므로 «앱을 켤 때» 받아야 한다.
+            ⚠ 담은 뒤 kakaoCatch 가 조각을 지운다 —
+              그 주소가 남에게 넘어가면 그대로 세션이다 */
+      const kk = kakaoCatch();
+      if (kk) {
+        try {
+          const u = await sbWho(kk.access_token);
+          const uid = u?.id;
+          if (uid) {
+            let pf = null;
+            try {
+              pf = await sbProfile(kk.access_token, uid);
+            } catch (e) {}
+            const nm = pickName(pf, u);
+            const base = normalize(JSON.parse((await window.storage.get(KEY).catch(() => null))?.value || "{}"));
+            put({
+              ...base,
+              me: uid,
+              nick: nm,
+              profile: {
+                id: uid,
+                email: u?.email || "",
+                nickname: nm
+              },
+              session: kk
+            });
+            setLoading(false);
+            setTimeout(() => say(`${nm}님, 반갑습니다`), 300);
+            return;
+          }
+        } catch (e) {
+          setTimeout(() => say("카카오 로그인을 마치지 못했습니다"), 300);
+        }
+      }
       try {
         const r = await window.storage.get(KEY);
         if (r?.value) {

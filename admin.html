@@ -190,11 +190,20 @@ $("save").onclick = async () => {
   $("save").disabled = true; $("save").textContent = "올리는 중…";
   try {
     /* ★ 같은 골프장을 다시 넣으면 덮어쓴다 (club 이 열쇠) */
-    await sb("/rest/v1/glf_course?on_conflict=club", {
-      method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+    /* ★ 몇 줄이 바뀌었는지 «세어» 본다 (2026-09-10 · 명카페 창이 겪은 것).
+          토큰이 만료되면 RLS 에 걸려 «조용히 0줄» 이 바뀐다.
+          오류도 안 나고 알림도 안 떠서 저장된 줄 알고 나가게 된다 */
+    const back = await sb("/rest/v1/glf_course?on_conflict=club", {
+      method: "POST", prefer: "resolution=merge-duplicates,return=representation",
       body: READY.map((r) => ({ ...r, up_at: new Date().toISOString() })),
     });
-    say(`${READY.length}곳을 등록했습니다`);
+    const n = Array.isArray(back) ? back.length : 0;
+    if (n === 0) {
+      say("한 곳도 등록되지 않았습니다 — 로그아웃 후 다시 로그인해 보세요");
+      $("save").disabled = false; $("save").textContent = "등록하기";
+      return;
+    }
+    say(`${n}곳을 등록했습니다`);
     $("raw").value = ""; $("report").innerHTML = ""; READY = [];
     load();
   } catch (e) {
