@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-47 카카오 하나만 · 이메일 가입·로그인 걷어냄 -->
+<!-- build: 1판-48 AI 열쇠 칸 걷어냄 · 사진 읽기는 모두 서버로 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -2821,40 +2821,18 @@ function GolfTally({
    클럽하우스에서 뽑아주는 인쇄 스코어카드를 찍으면 홀별 타수를 채운다.
    (2026-09-04 · 사용자 요청)
 
-   ★ 열쇠(API key)를 코드에 넣지 않는다.
-     웹 앱이라 브라우저에서 코드를 열면 그대로 보인다. 남이 가져다 쓰면 요금이 온다.
-     지금은 [계정] 화면에서 사장님이 자기 기기에 넣고, 그 기기에서만 산다.
-     ⚠ 나중에 Supabase Edge Function 이 생기면 aiRead() 의 fetch 주소만 바꾸면 된다.
-       그때 이 파일에서 고칠 곳은 그 한 군데뿐이다.
+   ★ 열쇠(API key)는 «서버가» 갖는다 (2026-09-10 · 명연재가 만든 길).
+     앱은 로그인한 사람의 토큰만 보내고, 서버가 잔액을 보고 200원을 뺀 뒤 읽는다.
+     ⇒ 모든 사람이 같은 값을 낸다. 기기마다 열쇠를 넣는 칸은 걷어냈다 (2026-09-10 · 대표님).
+   ⛔ 열쇠를 코드에 넣지 말 것 — 웹 앱이라 브라우저에서 그대로 보인다.
+   ⛔ 기기에 열쇠를 넣는 칸을 되살리지 말 것 — 그 사람만 지갑을 건너뛰게 된다.
 
    ★ 읽어온 것을 그냥 저장하지 않는다. 반드시 사람이 보는 화면을 거친다.
      18홀 4명이면 칸이 72개다. 하나 틀린 것을 모르고 넘어가면 합계가 어긋난다.   */
 
-const AI_KEY = "golf:aikey:v1"; /* 이 기기에만 담는다 */
-const AI_MODEL = "claude-sonnet-5";
-const aiKeyGet = async () => {
-  try {
-    const r = await window.storage.get(AI_KEY);
-    return r?.value || "";
-  } catch (e) {
-    return "";
-  }
-};
-/* ★ 담고 나서 다시 읽어 확인한다 (2026-09-04).
-      전에는 실패해도 "열쇠를 넣었습니다" 라고 말했다 — 사용자가 넣은 줄 알고 넘어간다.
-      시크릿 창 · 쿠키 차단 · 저장칸이 꽉 찬 기기에서 조용히 실패한다 */
-const aiKeySet = async v => {
-  try {
-    if (!v) {
-      await window.storage.delete(AI_KEY);
-      return true;
-    }
-    await window.storage.set(AI_KEY, v);
-    return (await aiKeyGet()) === v; /* 되읽어서 진짜 담겼는지 본다 */
-  } catch (e) {
-    return false;
-  }
-};
+/* ★ 예전에 기기에 담던 열쇠 자리. 이제 쓰지 않는다 — 앱을 켤 때 남은 것을 지운다 (90-app).
+     ⚠ 진짜 열쇠가 폰 저장칸에 남아 있으면 그 폰을 만진 사람이 꺼내 갈 수 있다 */
+const AI_KEY_OLD = "golf:aikey:v1";
 
 /* 사진 한 장 → 홀별 타수 표.
    ⚠ 모델에게 JSON 만 내놓으라고 못박는다. 설명이 섞이면 못 읽는다 */
@@ -3041,7 +3019,7 @@ function PhotoRead({
     style: {
       color: "var(--ivory)"
     }
-  }, "＋"), " 를 눌러 카카오로 3초면 됩니다."), /*#__PURE__*/React.createElement("button", {
+  }, "[로그인]"), " 을 눌러 카카오로 3초면 됩니다."), /*#__PURE__*/React.createElement("button", {
     className: "ghost",
     onClick: onClose
   }, "닫기")), phase === "pick" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
@@ -9188,20 +9166,6 @@ function Account({
 }) {
   /* ★ 들어와 있으면 [내 계정], 아니면 [로그인] — 이메일 가입 칸이 없어져 갈래가 둘뿐이다 */
   const tab = data.me ? "me" : "in";
-  /* ★ 사진으로 스코어 읽기에 쓰는 열쇠 (2026-09-04).
-        ★ 이 기기에만 담는다 — 코드에 넣으면 브라우저에서 그대로 보인다.
-        ⚠ 나중에 Supabase Edge Function 이 생기면 이 칸을 없애고 서버가 갖게 한다 */
-  const [aikey, setAikey] = useState(""); /* 칸에 친 글자 */
-  const [saved, setSaved] = useState(""); /* ★ 진짜 담긴 값 */
-  const [keyOpen, setKeyOpen] = useState(false);
-  const [keyMsg, setKeyMsg] = useState(""); /* "" · "ok" · 오류 글 */
-  useEffect(() => {
-    (async () => {
-      const k = await aiKeyGet();
-      setAikey(k);
-      setSaved(k);
-    })();
-  }, []);
   const acc = data.profile || null;
   const pend = data.games.filter(g => !g.sid).length;
 
@@ -9462,124 +9426,7 @@ function Account({
       fontSize: 13,
       color: "var(--chalk)"
     }
-  }, "›")))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      borderTop: "1px solid var(--line)",
-      marginTop: 18,
-      paddingTop: 14
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setKeyOpen(!keyOpen),
-    style: {
-      width: "100%",
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      textAlign: "left"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 14
-    }
-  }, "📷"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 1,
-      fontSize: 13.5,
-      fontWeight: 600,
-      color: "#B9CCDA"
-    }
-  }, "사진으로 스코어 읽기"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11.5,
-      color: saved ? ACCENT : "#7E9AB0"
-    }
-  }, !saved ? "열쇠 없음" : saved === aikey ? "열쇠 있음" : "고친 것을 저장하세요"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
-      color: "#7E9AB0"
-    }
-  }, keyOpen ? "▲" : "▼")), keyOpen && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 12
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "lbl"
-  }, "AI 열쇠"), /*#__PURE__*/React.createElement("input", {
-    value: aikey,
-    onChange: e => {
-      setAikey(e.target.value.trim());
-      setKeyMsg("");
-    },
-    placeholder: "sk-ant-...",
-    autoComplete: "off",
-    style: {
-      marginBottom: 8,
-      fontSize: 13
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 7,
-      marginBottom: 10
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "prim",
-    style: {
-      padding: 11,
-      fontSize: 13.5
-    },
-    onClick: async () => {
-      await aiKeySet(aikey);
-      const back = await aiKeyGet(); /* ★ 되읽어서 진짜 담겼는지 본다 */
-      setSaved(back);
-      setKeyMsg(back === aikey ? "ok" : "담기지 않았습니다");
-      say(aikey ? "열쇠를 넣었습니다" : "열쇠를 지웠습니다");
-    }
-  }, "저장"), /*#__PURE__*/React.createElement("button", {
-    className: "ghost",
-    style: {
-      padding: 11,
-      fontSize: 13.5
-    },
-    onClick: async () => {
-      setAikey("");
-      await aiKeySet("");
-      setSaved("");
-      setKeyMsg("");
-      say("열쇠를 지웠습니다");
-    }
-  }, "지우기")), keyMsg === "ok" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "rgba(79,178,134,.14)",
-      border: "1px solid rgba(79,178,134,.55)",
-      borderRadius: 9,
-      padding: "11px 13px",
-      fontSize: 12.5,
-      lineHeight: 1.7,
-      marginBottom: 10,
-      color: "#9fe0b8"
-    }
-  }, "✓ 저장했습니다. 이제 스코어 화면에서 [📷 사진] 을 쓸 수 있습니다."), keyMsg && keyMsg !== "ok" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "rgba(226,75,74,.12)",
-      border: "1px solid rgba(226,75,74,.5)",
-      borderRadius: 9,
-      padding: "11px 13px",
-      fontSize: 12,
-      lineHeight: 1.7,
-      marginBottom: 10
-    }
-  }, /*#__PURE__*/React.createElement("b", null, "저장하지 못했습니다 — ", keyMsg), /*#__PURE__*/React.createElement("br", null), "시크릿 창에서는 담기지 않습니다. 보통 창에서 다시 해보세요. 쿠키를 막아두셨다면 그 설정도 풀어야 합니다."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "#6F8598",
-      lineHeight: 1.75
-    }
-  }, "★ 열쇠는 ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: "var(--ivory)"
-    }
-  }, "이 기기에만"), " 담기고 서버로 안 갑니다. console.anthropic.com 에서 받습니다. 사진 한 장에 10원쯤 듭니다.")))));
+  }, "›"))))));
 }
 
 /* ── 문의하기 ── */
@@ -9746,6 +9593,12 @@ function App() {
     return () => {
       live = false;
     };
+  }, []);
+
+  /* ★ 예전에 기기에 담아 둔 AI 열쇠를 지운다 (2026-09-10).
+        칸을 걷어내도 저장칸에 진짜 열쇠가 남는다. 없으면 조용히 넘어간다 */
+  useEffect(() => {
+    window.storage?.delete?.(AI_KEY_OLD)?.catch?.(() => {});
   }, []);
   useEffect(() => {
     (async () => {
