@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-41 사진 읽기 서버 길 -->
+<!-- build: 1판-42 지갑 자리 · 함께 쓰는 서비스 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -65,6 +65,33 @@ const strokeWipe = (sport, me) => {
   } catch (e) {}
 };
 const LIVE_KEEP = 12 * 60 * 60 * 1000;
+
+/* ══ 함께 쓰는 서비스 ═══════════════════════
+   (2026-09-10 · 명카페 홈에 골프온 자리가 생긴 것과 짝)
+   ★ 세 앱이 «같은 자리 · 같은 모양» 이어야 한다. 회원이 어디서든 같은 곳을 찾는다 */
+const SIBLINGS = [{
+  k: "myc",
+  name: "명카페",
+  icon: "☕",
+  url: "https://myjae.kr"
+}, {
+  k: "bil",
+  name: "큐보드",
+  icon: "🎱",
+  url: "https://cue.myjae.kr"
+}];
+
+/* ★ 지갑 — 명카페가 갖고 있다. 골프온에 «따로 만들지 않는다»
+   ⚠ from=glf 를 바꾸지 말 것 — mc_ledger.service 와 짝이다
+   ⚠ need= 는 붙이지 않는다 (명카페 지시) */
+const WALLET_URL = "https://myjae.kr/wallet?from=glf";
+
+/* ★★ 지갑 관문 — 셋이 «같은 날» 켠다 (명카페 WALLET_GATE_ON 과 짝)
+      켜면 라운드 저장 · 시상표에서 잔액을 확인하고 뺀다.
+      꺼두면 지금과 똑같이 공짜로 돈다.
+   ⚠ 한쪽만 켜면 손님이 앱마다 다른 대접을 받는다.
+   ⚠ 사진 읽기(200원)는 «서버가» 빼므로 이 스위치와 상관없이 이미 돈다 */
+const WALLET_GATE_ON = false;
 const ACCENT = "#E8B838"; /* ★ 당구(큐보드)와 같은 색으로 맞췄다 */
 const MAXP = 5; /* ★ 골프는 다섯 명까지 */
 const NAMELEN = 3; /* ★ 이름은 세 글자로 고정 (한 줄에 네 칸이 들어가야 한다) */
@@ -5759,7 +5786,7 @@ function Banner({
       maxWidth: 460,
       display: "block",
       margin: "0 auto",
-      paddingBottom: 12
+      paddingBottom: 10
     }
   }) : /*#__PURE__*/React.createElement("div", {
     style: {
@@ -5780,7 +5807,26 @@ function Banner({
       color: "#C99B4E",
       marginTop: 5
     }
-  }, "SMART GOLF TRACKER")));
+  }, "SMART GOLF TRACKER")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 6,
+      padding: "0 12px 10px"
+    }
+  }, SIBLINGS.map(x => /*#__PURE__*/React.createElement("a", {
+    key: x.k,
+    href: x.url,
+    style: {
+      border: "1px solid rgba(244,238,223,.14)",
+      borderRadius: 9,
+      padding: "8px 0",
+      textAlign: "center",
+      fontSize: 12,
+      color: "#9FBBD0",
+      textDecoration: "none"
+    }
+  }, x.icon, " ", x.name))));
 }
 
 /* ── 홈 = 라운드 준비 ───────────────────────
@@ -5986,7 +6032,26 @@ function NameBox({
       fontSize: 13.5,
       borderBottom: "1px solid rgba(255,255,255,.06)"
     }
-  }, n))));
+  }, n))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 6,
+      padding: "0 12px 10px"
+    }
+  }, SIBLINGS.map(x => /*#__PURE__*/React.createElement("a", {
+    key: x.k,
+    href: x.url,
+    style: {
+      border: "1px solid rgba(244,238,223,.14)",
+      borderRadius: 9,
+      padding: "8px 0",
+      textAlign: "center",
+      fontSize: 12,
+      color: "#9FBBD0",
+      textDecoration: "none"
+    }
+  }, x.icon, " ", x.name))));
 }
 
 /* 후보가 뜨는 칸 — 골프장 · 코스에 쓴다.
@@ -7670,6 +7735,82 @@ function Stroke({
    ⚠ 올림은 앱이 마음대로 하지 않는다 (사용자 지시).
      [백 원] [천 원] 단추를 눌렀을 때만 올리고, 얼마가 남는지 함께 보여준다.  */
 
+/* ★★ 잔액이 모자랄 때 (2026-09-10)
+      ⚠ 못 나가게 막지 않는다 — [그냥 닫기] 를 반드시 둔다 (명카페 지시).
+      ⚠ 충전하기는 명카페 지갑으로 보낸다. 거기서 골프온으로 돌아온다 */
+function NeedMore({
+  need,
+  have,
+  what,
+  onClose
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,.8)",
+      zIndex: 99,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "var(--bg)",
+      border: "1px solid rgba(232,184,56,.4)",
+      borderRadius: 14,
+      padding: 18,
+      width: "100%",
+      maxWidth: 360
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15.5,
+      fontWeight: 700,
+      marginBottom: 9
+    }
+  }, "잔액이 모자랍니다"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: "var(--chalk)",
+      lineHeight: 1.8,
+      marginBottom: 15
+    }
+  }, what, "하려면 ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: ACCENT
+    }
+  }, won(need), "원"), "이 필요합니다.", /*#__PURE__*/React.createElement("br", null), "지금 잔액은 ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "var(--ivory)"
+    }
+  }, won(have), "원"), "입니다."), /*#__PURE__*/React.createElement("a", {
+    href: WALLET_URL,
+    style: {
+      display: "block",
+      background: ACCENT,
+      color: "#141200",
+      borderRadius: 10,
+      padding: "13px 0",
+      textAlign: "center",
+      fontSize: 14.5,
+      fontWeight: 700,
+      textDecoration: "none",
+      marginBottom: 7
+    }
+  }, "충전하기"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      width: "100%",
+      padding: "11px 0",
+      fontSize: 13,
+      color: "#7d8f9b"
+    }
+  }, "그냥 닫기")));
+}
 const SETTLE_ACC = "golf:account:v1"; /* 입금 계좌 — 이 기기에 담아 다음에도 쓴다 */
 
 /* ★ 접히는 상자 (2026-09-06 · 사용자 지시)
@@ -9440,7 +9581,84 @@ function Account({
       lineHeight: 1.7,
       marginTop: 14
     }
-  }, "로그인하지 않아도 앱은 그대로 쓸 수 있습니다. 다만 기록이 이 폰 안에만 남습니다. 명카페 계정이 있으면 그대로 쓰시면 됩니다.")), /*#__PURE__*/React.createElement("div", {
+  }, "로그인하지 않아도 앱은 그대로 쓸 수 있습니다. 다만 기록이 이 폰 안에만 남습니다. 명카페 계정이 있으면 그대로 쓰시면 됩니다.")), acc && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: WALLET_URL,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      textDecoration: "none",
+      background: "#0F2A42",
+      borderRadius: 12,
+      padding: 13,
+      marginBottom: 12,
+      color: "var(--ivory)"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 15
+    }
+  }, "💰"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 14,
+      fontWeight: 600
+    }
+  }, "내 지갑"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 11,
+      color: "var(--chalk)",
+      marginTop: 3
+    }
+  }, "명카페 · 큐보드와 함께 씁니다")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      color: "var(--chalk)"
+    }
+  }, "›")), /*#__PURE__*/React.createElement("span", {
+    className: "lbl",
+    style: {
+      marginTop: 0
+    }
+  }, "함께 쓰는 서비스"), SIBLINGS.map(x => /*#__PURE__*/React.createElement("a", {
+    key: x.k,
+    href: x.url,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      textDecoration: "none",
+      background: "#0F2A42",
+      borderRadius: 12,
+      padding: 13,
+      marginBottom: 6,
+      color: "var(--ivory)"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 15
+    }
+  }, x.icon), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: 600
+    }
+  }, x.name), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      color: "var(--chalk)"
+    }
+  }, "›")))), /*#__PURE__*/React.createElement("div", {
     style: {
       borderTop: "1px solid var(--line)",
       marginTop: 18,
