@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-48 AI 열쇠 칸 걷어냄 · 사진 읽기는 모두 서버로 -->
+<!-- build: 1판-49 세션 한 모양 · 로그인 바로 저장 · 6시간 갱신 · 신호 끊김 가름 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -750,7 +750,9 @@ const sbFetch = async (path, opt = {}) => {
   } catch (e) {}
   if (!res.ok) {
     const msg = body?.error_description || body?.msg || body?.message || `오류 ${res.status}`;
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.status = res.status; /* ★ 서버가 «거절» 한 것 — 신호가 끊긴 것(status 없음)과 가른다 */
+    throw err;
   }
   return body;
 };
@@ -833,7 +835,8 @@ function kakaoCatch() {
   return {
     access_token: at,
     refresh_token: rt || "",
-    expires_at: exp
+    expires_at: exp,
+    expires_in: Number(q.get("expires_in")) || 0
   };
 }
 
@@ -852,12 +855,21 @@ const sbWho = token => sbFetch("/auth/v1/user", {
    Supabase 토큰은 한 시간이면 만료된다.
    갱신이 없으면 로그인 한 시간 뒤부터 저장이 조용히 실패한다. */
 const SESS_PAD = 60 * 1000; // 만료 1분 전에 미리 갱신
+/* ★★ 세션은 «한 모양» 으로만 담는다 — { token, refresh, at, exp } (2026-09-11 · 명연재 쪽지로 찾음)
+      1판-44~48 은 카카오 조각을 { access_token, refresh_token, expires_at } 그대로 담았다.
+      갱신(sbToken) · 서버 보관은 token 을 보고, 사진 읽기는 access_token 을 봤다.
+      ⇒ 카카오로 들어온 사람은 서버 보관이 한 번도 안 돌았고, 사진 읽기는 갱신 없이
+        한 시간 뒤 401 이 났다.
+   ★ 만료는 «받은 순간 + 남은 초(expires_in)» 로 센다. expires_at 은 서버 시계라
+     폰 시계가 틀어져 있으면 죽은 토큰을 산 것으로 본다. expires_in 이 없을 때만 쓴다 */
 const sessOf = t => t?.access_token ? {
   token: t.access_token,
-  refresh: t.refresh_token,
+  refresh: t.refresh_token || "",
   at: Date.now(),
-  exp: Date.now() + (Number(t.expires_in) || 3600) * 1000
+  exp: Number(t.expires_in) > 0 ? Date.now() + Number(t.expires_in) * 1000 : Number(t.expires_at) > 0 ? Number(t.expires_at) * 1000 : Date.now() + 3600 * 1000
 } : null;
+/* 옛 모양(access_token …)으로 담긴 세션을 켤 때 고친다. 이미 맞으면 그대로 */
+const sessFix = s => !s || s.token ? s : s.access_token ? sessOf(s) : s;
 /* exp 가 없는 옛 세션은 55분으로 본다 */
 const sessExp = s => Number(s?.exp) || (Number(s?.at) || 0) + 55 * 60 * 1000;
 const sessAlive = s => !!s?.token && Date.now() < sessExp(s) - SESS_PAD;
@@ -879,11 +891,21 @@ async function sbToken(sess, onNew) {
   if (!REFRESHING) {
     REFRESHING = sbRefresh(sess.refresh).then(sessOf);
   }
+  /* ★ 갱신이 실패한 까닭을 가른다 (2026-09-11)
+       서버가 거절(status 있음)  → null   → 정말 로그인이 끝났다 · 다시 로그인
+       신호가 끊김(status 없음)  → 던진다 → 세션은 그대로 두고 «나중에» 다시 한다
+     ⚠ 골프장은 신호가 약하다. 신호 탓에 「다시 로그인하라」 고 하면 낭패다 (명연재 쪽지) */
   let n = null;
   try {
     n = await REFRESHING;
   } catch (e) {
-    n = null;
+    REFRESHING = null;
+    if (!e?.status) {
+      const off = new Error("신호가 약합니다. 조금 뒤 다시 해주세요");
+      off.offline = true;
+      throw off;
+    }
+    return null;
   }
   REFRESHING = null;
   if (!n?.token) return null;
@@ -2921,13 +2943,15 @@ function PhotoRead({
   onClose,
   say,
   full,
-  token
+  token,
+  getToken
 }) {
   /* ★ 이제 «로그인 토큰» 을 보낸다 (2026-09-10).
         전에는 AI 열쇠를 기기마다 넣어 브라우저가 바로 불렀다.
         서버가 열쇠를 갖게 되면서, 우리가 보낼 것은 "누구인가" 하나뿐이다.
      ⚠ 로그인 안 한 사람은 못 쓴다 — 누구 지갑에서 뺄지 알 수 없기 때문이다 */
-  const key = token || "";
+  /* ★ token 은 «로그인했는가» 를 가르는 데만 쓴다. 부를 때는 getToken() 으로 새로 받는다
+       (2026-09-11) — 이 창을 연 채 한 시간이 지나도 죽은 토큰을 들고 부르지 않게 */
   const [phase, setPhase] = useState(token ? "pick" : "nologin");
   const [err, setErr] = useState("");
   const [rows, setRows] = useState([]); // [{ name, pi, scores:[] }]
@@ -2940,7 +2964,14 @@ function PhotoRead({
     setPhase("busy"); /* 고르자마자 "읽는 중" 으로 — 기다리는 줄 알게 */
     try {
       const url = await shrinkPhoto(file, 1600, 0.8);
-      const out = await aiRead(url, key, holes, full);
+      /* 신호가 끊겨 못 받으면 getToken 이 던진다 → 아래 catch 가 「신호가 약합니다」 를 보인다.
+         서버가 거절해 null 이면 그때만 「먼저 로그인해 주세요」 */
+      const tk = (getToken ? await getToken() : token) || "";
+      if (!tk) {
+        setPhase("nologin");
+        return;
+      }
+      const out = await aiRead(url, tk, holes, full);
       /* ★ 전부 읽기(full)면 홀 수도 사진에서 온다 */
       const hn = full ? Number(out.holes) === 9 ? 9 : 18 : holes;
       const got = (out.players || []).map((p, i) => {
@@ -6774,7 +6805,8 @@ function Stroke({
   setBare,
   sport,
   setSport,
-  courseAt
+  courseAt,
+  freshToken
 }) {
   const sp = S(sport);
   const [phase, setPhase] = useState("setup");
@@ -7223,7 +7255,8 @@ function Stroke({
     holes: 18,
     pars: pars,
     say: say,
-    token: data.session?.access_token,
+    token: data.session?.token,
+    getToken: freshToken,
     onDone: openFromPhoto,
     onClose: () => setShotFull(false)
   }));
@@ -7355,7 +7388,8 @@ function Stroke({
     holes: holes,
     pars: pars,
     say: say,
-    token: data.session?.access_token,
+    token: data.session?.token,
+    getToken: freshToken,
     onDone: applyRead,
     onClose: () => setShot(false)
   }));
@@ -7414,7 +7448,8 @@ function Stroke({
     holes: holes,
     pars: pars,
     say: say,
-    token: data.session?.access_token,
+    token: data.session?.token,
+    getToken: freshToken,
     onDone: applyRead,
     onClose: () => setShot(false)
   }));
@@ -7664,7 +7699,8 @@ function Stroke({
     holes: holes,
     pars: pars,
     say: say,
-    token: data.session?.access_token,
+    token: data.session?.token,
+    getToken: freshToken,
     onDone: applyRead,
     onClose: () => setShot(false)
   }), prev && /*#__PURE__*/React.createElement(CardPreview, {
@@ -9624,7 +9660,10 @@ function App() {
             } catch (e) {}
             const nm = pickName(pf, u);
             const base = normalize(JSON.parse((await window.storage.get(KEY).catch(() => null))?.value || "{}"));
-            put({
+            /* ★★ 한 모양으로 바꿔 «폰에 바로 저장» 한다 (2026-09-11).
+                  전에는 put() 이 화면만 바꾸고 저장칸에 안 써서, 뭘 저장하기 전에
+                  앱을 닫으면 로그인이 풀렸다 (조각은 이미 지워져 되살릴 길도 없다) */
+            const next = {
               ...base,
               me: uid,
               nick: nm,
@@ -9633,8 +9672,12 @@ function App() {
                 email: u?.email || "",
                 nickname: nm
               },
-              session: kk
-            });
+              session: sessOf(kk)
+            };
+            put(next);
+            try {
+              await window.storage.set(KEY, JSON.stringify(next));
+            } catch (e) {}
             setLoading(false);
             setTimeout(() => say(`${nm}님, 반갑습니다`), 300);
             return;
@@ -9646,7 +9689,11 @@ function App() {
       try {
         const r = await window.storage.get(KEY);
         if (r?.value) {
-          put(normalize(JSON.parse(r.value)));
+          const d0 = normalize(JSON.parse(r.value));
+          put({
+            ...d0,
+            session: sessFix(d0.session)
+          }); /* ★ 옛 모양 세션 고침 */
           setLoading(false);
           return;
         }
@@ -9660,7 +9707,7 @@ function App() {
           put(normalize({
             me: h.me,
             nick: h.nick,
-            session: h.session,
+            session: sessFix(h.session),
             games: golfGames(h.games)
           }));
         }
@@ -9683,6 +9730,14 @@ function App() {
     if (toastT.current) clearTimeout(toastT.current);
     toastT.current = setTimeout(() => setToast(""), 2400);
   };
+
+  /* ★★ 쓸 수 있는 토큰을 «그때그때» 준다 (2026-09-11).
+        만료 1분 전이면 refresh 로 새로 받고, 새 세션은 폰에 담는다 (sbToken).
+        ⚠ 화면을 열 때 받은 토큰을 들고 있지 말 것 — 라운드는 6시간이다 */
+  const freshToken = () => sbToken(dataRef.current.session, s => patch(p => ({
+    ...p,
+    session: s
+  })));
 
   /* ── 서버 보관 ──
      ★ 올리는 데 몇 초가 걸린다. 그 사이 또 저장할 수 있으므로
@@ -9708,10 +9763,22 @@ function App() {
       busy: true,
       msg: ""
     });
-    const token = await sbToken(d.session, s => patch(p => ({
-      ...p,
-      session: s
-    })));
+    let token = null;
+    try {
+      token = await sbToken(d.session, s => patch(p => ({
+        ...p,
+        session: s
+      })));
+    } catch (e) {
+      /* ★ 신호가 끊겨 갱신을 못 했다 — 로그인은 살아 있다. 조용히 다음에 올린다 */
+      syncing.current = false;
+      setSync({
+        busy: false,
+        msg: "신호가 약해 나중에 올립니다"
+      });
+      if (!quiet) say("신호가 약해 나중에 올립니다. 기록은 폰에 있습니다");
+      return;
+    }
     if (!token) {
       syncing.current = false;
       setSync({
@@ -9884,7 +9951,8 @@ function App() {
     setBare: setBare,
     sport: sport,
     setSport: setSport,
-    courseAt: courseAt
+    courseAt: courseAt,
+    freshToken: freshToken
   }))), tab === "log" && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "18px 16px 0"
