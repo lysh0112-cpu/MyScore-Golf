@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-44 이름 칸에 딸려간 것 고침 -->
+<!-- build: 1판-45 명연재 · 전화 · 푸터 · 자매 칸 접힘 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -69,9 +69,12 @@ const LIVE_KEEP = 12 * 60 * 60 * 1000;
 /* ══ 함께 쓰는 서비스 ═══════════════════════
    (2026-09-10 · 명카페 홈에 골프온 자리가 생긴 것과 짝)
    ★ 세 앱이 «같은 자리 · 같은 모양» 이어야 한다. 회원이 어디서든 같은 곳을 찾는다 */
-const SIBLINGS = [{
+const SIBLINGS = [
+/* ★ 손님 화면의 이름은 «명연재» (2026-09-10 · 명카페 4차 쪽지). k: "myc" 는 그대로 —
+     mc_ledger.service 와 짝이라 바꾸면 지갑이 갈라진다 */
+{
   k: "myc",
-  name: "명카페",
+  name: "명연재",
   icon: "☕",
   url: "https://myjae.kr"
 }, {
@@ -93,6 +96,15 @@ const WALLET_URL = "https://myjae.kr/wallet?from=glf";
    ⚠ glf 는 지갑 주소에 쓰는 낱말과 «같은 것» 이다 */
 const TERMS_URL = "https://myjae.kr/terms?from=glf";
 const PRIVACY_URL = "https://myjae.kr/privacy?from=glf";
+
+/* ★ 고객센터 전화 — 세 앱이 «같은 번호» (2026-09-10 개통 · 명카페 4차 쪽지)
+   ⚠ 약관 · 방침 · 통신판매업 신고서 · PG 신청서에 다 들어간 번호다.
+     PG 심사가 «사이트 하단과 신청서가 같은지» 본다. 한 곳만 바꾸지 말 것
+   ⛔ 통신판매업 신고번호는 아직 없다 — 그 줄은 «안 낸다». 「준비 중」으로 채우지 말 것
+   ★ TEL_CALL_ON — PG 심사를 통과할 때까지는 «누르면 바로 전화» (2026-09-10 · 대표님 지시)
+     통과한 뒤에는 false → 번호는 그대로 보이고, 눌러도 안 걸린다 */
+const TEL = "010-6493-2252";
+const TEL_CALL_ON = true;
 
 /* ★★ 지갑 관문 — 셋이 «같은 날» 켠다 (명카페 WALLET_GATE_ON 과 짝)
       켜면 라운드 저장 · 시상표에서 잔액을 확인하고 뺀다.
@@ -5832,7 +5844,11 @@ function Banner({
       textAlign: "center",
       fontSize: 12,
       color: "#9FBBD0",
-      textDecoration: "none"
+      textDecoration: "none",
+      /* ★ 좁아져도 글자가 세로로 접히지 않게 (2026-09-10 · 큐보드가 찾은 것) */
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis"
     }
   }, x.icon, " ", x.name))));
 }
@@ -9452,7 +9468,7 @@ function Account({
       lineHeight: 1.7,
       margin: "8px 0 16px"
     }
-  }, "명카페 · 큐보드와 같은 계정입니다. 한 번 로그인하면 세 곳에서 그대로 쓰입니다."), /*#__PURE__*/React.createElement("div", {
+  }, "명연재 · 큐보드와 같은 계정입니다. 한 번 로그인하면 세 곳에서 그대로 쓰입니다."), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -9570,7 +9586,7 @@ function Account({
       lineHeight: 1.7,
       marginTop: 14
     }
-  }, "로그인하지 않아도 앱은 그대로 쓸 수 있습니다. 다만 기록이 이 폰 안에만 남습니다. 명카페 계정이 있으면 그대로 쓰시면 됩니다.")), acc && /*#__PURE__*/React.createElement("div", {
+  }, "로그인하지 않아도 앱은 그대로 쓸 수 있습니다. 다만 기록이 이 폰 안에만 남습니다. 명연재 계정이 있으면 그대로 쓰시면 됩니다.")), acc && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 4
     }
@@ -9608,7 +9624,7 @@ function Account({
       color: "var(--chalk)",
       marginTop: 3
     }
-  }, "명카페 · 큐보드와 함께 씁니다")), /*#__PURE__*/React.createElement("span", {
+  }, "명연재 · 큐보드와 함께 씁니다")), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 13,
       color: "var(--chalk)"
@@ -9857,7 +9873,22 @@ function Ask({
     style: {
       color: "var(--accent)"
     }
-  }, MAIL)), /*#__PURE__*/React.createElement("div", {
+  }, MAIL)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "rgba(244,238,223,.82)",
+      fontWeight: 600
+    }
+  }, "전화 "), TEL_CALL_ON ? /*#__PURE__*/React.createElement("a", {
+    href: `tel:${TEL.replace(/-/g, "")}`,
+    style: {
+      color: "var(--accent)",
+      textDecoration: "underline"
+    }
+  }, TEL) : /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "var(--accent)"
+    }
+  }, TEL)), /*#__PURE__*/React.createElement("div", null, "개인정보 보호책임자 오연희 (대표이사)"), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       color: "rgba(159,187,208,.45)"
