@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-45 명연재 · 전화 · 푸터 · 자매 칸 접힘 -->
+<!-- build: 1판-46 오른쪽 위 알약 로그인 · 내 정보 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -5783,21 +5783,38 @@ function Banner({
       border: "1px solid " + (tv ? ACCENT : "rgba(255,255,255,.2)")
     }
   }, "🖥"), /*#__PURE__*/React.createElement("button", {
+    "data-k": "acct",
     onClick: onLogin,
-    title: me ? "내 계정" : "로그인",
+    title: me ? "내 정보" : "로그인",
     style: {
-      width: 34,
       height: 34,
-      borderRadius: "50%",
-      fontSize: 13,
-      fontWeight: 700,
-      background: me ? ACCENT : "rgba(0,0,0,.3)",
-      color: me ? "#141200" : "var(--chalk)",
-      border: "1px solid rgba(255,255,255,.2)"
-      /* ★ 이름의 첫 글자를 찍는다 (2026-09-10 · 사용자 지적).
-            전에는 me(계정 번호 uuid)의 첫 글자를 찍어 "1" 이 나왔다 */
+      borderRadius: 17,
+      padding: "0 14px 0 5px",
+      display: "flex",
+      alignItems: "center",
+      gap: 7,
+      whiteSpace: "nowrap",
+      background: "rgba(0,0,0,.3)",
+      color: "var(--ivory)",
+      fontSize: 13.5,
+      fontWeight: 600,
+      border: "1px solid " + (me ? "rgba(232,184,56,.55)" : "rgba(255,255,255,.28)")
     }
-  }, me ? (nick || "회원").trim().slice(0, 1) || "회" : "＋")), ok ? /*#__PURE__*/React.createElement("img", {
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 24,
+      height: 24,
+      borderRadius: "50%",
+      flexShrink: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: me ? ACCENT : "rgba(255,255,255,.12)",
+      color: me ? "#141200" : "var(--chalk)",
+      fontSize: me ? 12 : 13,
+      fontWeight: 700
+    }
+  }, me ? (nick || "회원").trim().slice(0, 1) || "회" : "👤"), me ? "내 정보" : "로그인")), ok ? /*#__PURE__*/React.createElement("img", {
     src: "logo.jpg",
     alt: "골프온",
     onError: () => setOk(false),
