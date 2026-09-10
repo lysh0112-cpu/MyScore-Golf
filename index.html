@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-42 지갑 자리 · 함께 쓰는 서비스 -->
+<!-- build: 1판-43 약관 · 방침 -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -85,6 +85,14 @@ const SIBLINGS = [{
    ⚠ from=glf 를 바꾸지 말 것 — mc_ledger.service 와 짝이다
    ⚠ need= 는 붙이지 않는다 (명카페 지시) */
 const WALLET_URL = "https://myjae.kr/wallet?from=glf";
+
+/* ★ 약관 · 개인정보처리방침 — 명카페가 갖고 있다 (2026-09-10)
+      세 서비스가 같은 회사 · 같은 계정 · 같은 지갑이라 문서도 하나로 둔다.
+   ⚠⚠ ?from=glf 를 «빼지 말 것» — 빼면 손님이 명카페에 남는다.
+      돌아올 단추가 안 나온다 (명카페 지시).
+   ⚠ glf 는 지갑 주소에 쓰는 낱말과 «같은 것» 이다 */
+const TERMS_URL = "https://myjae.kr/terms?from=glf";
+const PRIVACY_URL = "https://myjae.kr/privacy?from=glf";
 
 /* ★★ 지갑 관문 — 셋이 «같은 날» 켠다 (명카페 WALLET_GATE_ON 과 짝)
       켜면 라운드 저장 · 시상표에서 잔액을 확인하고 뺀다.
@@ -9837,7 +9845,25 @@ function Ask({
       fontWeight: 600,
       marginBottom: 3
     }
-  }, "(주)명연재 | 대표 오연희"), /*#__PURE__*/React.createElement("div", null, "사업자등록번호 296-86-04182"), /*#__PURE__*/React.createElement("div", null, "법인등록번호 110111-0969044"), /*#__PURE__*/React.createElement("div", null, "서울특별시 강북구 솔매로45길 95, 2층 (미아동)"), /*#__PURE__*/React.createElement("div", {
+  }, "(주)명연재 | 대표 오연희"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 14,
+      marginBottom: 11
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: TERMS_URL,
+    style: {
+      fontSize: 12,
+      color: "var(--chalk)"
+    }
+  }, "이용약관"), /*#__PURE__*/React.createElement("a", {
+    href: PRIVACY_URL,
+    style: {
+      fontSize: 12,
+      color: "var(--chalk)"
+    }
+  }, "개인정보처리방침")), /*#__PURE__*/React.createElement("div", null, "사업자등록번호 296-86-04182"), /*#__PURE__*/React.createElement("div", null, "법인등록번호 110111-0969044"), /*#__PURE__*/React.createElement("div", null, "서울특별시 강북구 솔매로45길 95, 2층 (미아동)"), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 3
     }
@@ -10219,7 +10245,29 @@ function App() {
     }
   }, /*#__PURE__*/React.createElement(Ask, {
     say: say
-  })), !bareNow && /*#__PURE__*/React.createElement("nav", {
+  })), !bareNow && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "center",
+      gap: 16,
+      padding: "22px 16px 96px",
+      fontSize: 11.5
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: TERMS_URL,
+    style: {
+      color: "#6F8598"
+    }
+  }, "이용약관"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#3C5163"
+    }
+  }, "·"), /*#__PURE__*/React.createElement("a", {
+    href: PRIVACY_URL,
+    style: {
+      color: "#6F8598"
+    }
+  }, "개인정보처리방침")), !bareNow && /*#__PURE__*/React.createElement("nav", {
     style: {
       position: "fixed",
       bottom: 0,
