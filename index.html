@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<!-- build: 1판-49 세션 한 모양 · 로그인 바로 저장 · 6시간 갱신 · 신호 끊김 가름 -->
+<!-- build: 1판-50 값 안내 잠깐 가림 (관문 켜는 날 되살림) -->
 <title>골프온 · GOLF ON</title>
 <style>
   html{height:auto;}
@@ -112,6 +112,13 @@ const TEL_CALL_ON = true;
    ⚠ 한쪽만 켜면 손님이 앱마다 다른 대접을 받는다.
    ⚠ 사진 읽기(200원)는 «서버가» 빼므로 이 스위치와 상관없이 이미 돈다 */
 const WALLET_GATE_ON = false;
+
+/* ★ 값 안내 — 「한 번에 200원이 지갑에서 빠집니다」 를 보일지 (2026-09-22 · 명연재 요청)
+     충전이 아직 안 되는 동안 «잠깐 가려» 둔다. 글자는 지우지 않았다 (47-read 안에 그대로 있다).
+   ⇒ 관문을 켜는 날 ★true 한 글자로 되살린다 — WALLET_GATE_ON 과 같은 날 켠다.
+   ⚠ 서버가 실제로 200원을 빼는 동안에는 가리면 «고지 없는 차감» 이 된다.
+     명연재에 「잔액이 있는 계정이 지금 읽으면 빠집니까」 를 확인한 뒤 결정할 것 */
+const PRICE_NOTE_ON = false;
 const ACCENT = "#E8B838"; /* ★ 당구(큐보드)와 같은 색으로 맞췄다 */
 const MAXP = 5; /* ★ 골프는 다섯 명까지 */
 const NAMELEN = 3; /* ★ 이름은 세 글자로 고정 (한 줄에 네 칸이 들어가야 한다) */
@@ -3046,7 +3053,7 @@ function PhotoRead({
       lineHeight: 1.75,
       marginBottom: 14
     }
-  }, "사진 읽기는 한 번에 200원이 지갑에서 빠집니다. 누구 지갑에서 뺄지 알아야 하므로 로그인이 필요합니다.", /*#__PURE__*/React.createElement("br", null), "오른쪽 위 ", /*#__PURE__*/React.createElement("b", {
+  }, PRICE_NOTE_ON ? "사진 읽기는 한 번에 200원이 지갑에서 빠집니다. 누구 지갑에서 뺄지 알아야 하므로 로그인이 필요합니다." : "누구의 기록인지 알아야 하므로 로그인이 필요합니다.", /*#__PURE__*/React.createElement("br", null), "오른쪽 위 ", /*#__PURE__*/React.createElement("b", {
     style: {
       color: "var(--ivory)"
     }
@@ -3066,11 +3073,11 @@ function PhotoRead({
       lineHeight: 1.75,
       marginBottom: 14
     }
-  }, "클럽하우스에서 뽑은 종이를 평평하게 놓고, 표 전체가 들어오게 찍어주세요. 그늘이 지거나 기울면 잘 못 읽습니다.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", {
+  }, "클럽하우스에서 뽑은 종이를 평평하게 놓고, 표 전체가 들어오게 찍어주세요. 그늘이 지거나 기울면 잘 못 읽습니다.", PRICE_NOTE_ON && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", {
     style: {
       color: ACCENT
     }
-  }, "한 번에 200원"), "이 지갑에서 빠집니다."), err && /*#__PURE__*/React.createElement("div", {
+  }, "한 번에 200원"), "이 지갑에서 빠집니다.")), err && /*#__PURE__*/React.createElement("div", {
     style: {
       background: "rgba(226,75,74,.12)",
       border: "1px solid rgba(226,75,74,.5)",
